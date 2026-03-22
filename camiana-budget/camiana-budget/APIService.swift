@@ -42,20 +42,31 @@ final class APIService {
             throw APIServiceError.invalidURL
         }
 
-        let (data, response) = try await URLSession.shared.data(from: url)
-
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw APIServiceError.invalidResponse
-        }
-
-        guard 200..<300 ~= httpResponse.statusCode else {
-            throw try parseServerError(from: data)
-        }
-
         do {
-            return try JSONDecoder().decode([Payment].self, from: data)
+            let (data, response) = try await URLSession.shared.data(from: url)
+
+            print("RAW RESPONSE:")
+            print(String(data: data, encoding: .utf8) ?? "No response body")
+            print("URL RESPONSE:")
+            print(response)
+
+            guard let httpResponse = response as? HTTPURLResponse else {
+                throw APIServiceError.invalidResponse
+            }
+
+            guard 200..<300 ~= httpResponse.statusCode else {
+                throw try parseServerError(from: data)
+            }
+
+            do {
+                return try JSONDecoder().decode([Payment].self, from: data)
+            } catch {
+                print("DECODING ERROR:", error)
+                throw APIServiceError.decodingError
+            }
         } catch {
-            throw APIServiceError.decodingError
+            print("NETWORK ERROR:", error)
+            throw error
         }
     }
 
