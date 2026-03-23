@@ -57,12 +57,15 @@ struct ContentView: View {
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 20) {
-                addPaymentSection
-                budgetToolsSection
-                savedPaymentsSection
+            ScrollView {
+                VStack(spacing: 20) {
+                    NextPaydaySummaryView()
+                    addPaymentSection
+                    budgetToolsSection
+                    savedPaymentsSection
+                }
+                .padding(20)
             }
-            .padding(20)
             .navigationTitle("Bills")
             .frame(minWidth: 850, minHeight: 650)
             .task {
@@ -142,7 +145,7 @@ struct ContentView: View {
                         Text("Weekly Total: $\(weeklyTotal, specifier: "%.2f")")
                             .font(.headline)
 
-                        List(weeklyPayments, id: \.identifier) { payment in
+                        List(weeklyPayments) { payment in
                             PaymentRowView(payment: payment)
                         }
                         .frame(minHeight: 140, maxHeight: 220)
@@ -164,7 +167,7 @@ struct ContentView: View {
                     Text("No payments found.")
                         .foregroundStyle(.secondary)
                 } else {
-                    List(payments, id: \.identifier) { payment in
+                    List(payments) { payment in
                         PaymentRowView(payment: payment)
                     }
                 }

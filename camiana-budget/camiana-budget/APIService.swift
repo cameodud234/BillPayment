@@ -36,6 +36,36 @@ final class APIService {
     private let baseURL = "http://127.0.0.1:8000"
 
     private init() {}
+    
+    func fetchNextPaydaySummary(today: String? = nil) async throws -> NextPaydaySummaryResponse {
+        var urlString = "\(baseURL)/next-payday-summary"
+
+        if let today, !today.isEmpty {
+            urlString += "?today=\(today)"
+        }
+
+        guard let url = URL(string: urlString) else {
+            throw APIServiceError.invalidURL
+        }
+
+        let (data, response) = try await URLSession.shared.data(from: url)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw APIServiceError.invalidResponse
+        }
+
+        guard 200..<300 ~= httpResponse.statusCode else {
+            throw try parseServerError(from: data)
+        }
+
+        do {
+            return try JSONDecoder().decode(NextPaydaySummaryResponse.self, from: data)
+        } catch {
+            print("DECODING ERROR:", error)
+            print("RAW BODY:", String(data: data, encoding: .utf8) ?? "No body")
+            throw APIServiceError.decodingError
+        }
+    }
 
     func fetchPayments() async throws -> [Payment] {
         guard let url = URL(string: "\(baseURL)/payments") else {

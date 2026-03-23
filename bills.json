@@ -1,1 +1,1 @@
-{"payments": {"1": {"name": "Rent", "amount": 2800.0, "due_date": "2026-04-01"}, "2": {"name": "Electricity", "category": "Utilities", "due_date": "2026-04-01", "amount": 200}}}
+{"payments": {"1": {"name": "Rent", "amount": 2800.0, "due_date": "2026-04-01", "category": "Housing"}}}
