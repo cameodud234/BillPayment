@@ -1,11 +1,11 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from tinydb import TinyDB
 from datetime import datetime, timedelta, date
 
-app = FastAPI()
+router = APIRouter()
 
-db = TinyDB("bills.json")
+db = TinyDB("./data/bills.json")
 payments_table = db.table("payments")
 
 
@@ -20,30 +20,24 @@ class WeeklyBudgetRequest(BaseModel):
     payday: str
 
 
-@app.get("/")
-def root():
-    return {"message": "Backend is running"}
-
-
-@app.get("/payments")
+@router.get("/payments")
 def get_payments():
     rows = payments_table.all()
     rows.sort(key=lambda x: x.get("due_date", ""))
 
-    result = []
-    for row in rows:
-        result.append({
+    return [
+        {
             "doc_id": row.doc_id,
             "name": row.get("name", ""),
             "amount": row.get("amount", 0.0),
             "due_date": row.get("due_date", ""),
             "category": row.get("category", "")
-        })
+        }
+        for row in rows
+    ]
 
-    return result
 
-
-@app.post("/add")
+@router.post("/payments")
 def add_payment(data: AddPaymentRequest):
     try:
         datetime.strptime(data.due_date, "%Y-%m-%d")
@@ -60,7 +54,7 @@ def add_payment(data: AddPaymentRequest):
     return {"status": "ok", "doc_id": doc_id}
 
 
-@app.post("/weekly")
+@router.post("/payments/weekly")
 def weekly_budget(data: WeeklyBudgetRequest):
     try:
         payday = datetime.strptime(data.payday, "%Y-%m-%d").date()
@@ -96,21 +90,16 @@ def weekly_budget(data: WeeklyBudgetRequest):
 
 
 # -----------------------------
-# NEW PAYDAY SUMMARY ENDPOINT
+# PAYDAY SUMMARY
 # -----------------------------
 
-# Put in a known Friday that was one of your wife's paydays.
-# Change this to the real anchor date.
 WIFE_PAYDAY_ANCHOR = date(2026, 3, 20)
 
 
 def get_next_friday(today: date) -> date:
-    days_ahead = 4 - today.weekday()  # Friday = 4
+    days_ahead = 4 - today.weekday()
     if days_ahead < 0:
         days_ahead += 7
-    elif days_ahead == 0:
-        # If today is Friday, treat today as the payday
-        days_ahead = 0
     return today + timedelta(days=days_ahead)
 
 
@@ -119,14 +108,8 @@ def is_wife_payday(check_date: date) -> bool:
     return delta_days % 14 == 0
 
 
-@app.get("/next-payday-summary")
+@router.get("/summaries/next-payday")
 def next_payday_summary(today: str | None = None):
-    """
-    Optional query param:
-    /next-payday-summary?today=2026-03-22
-
-    If omitted, uses the machine's current local date.
-    """
     if today:
         try:
             current_day = datetime.strptime(today, "%Y-%m-%d").date()
@@ -147,7 +130,6 @@ def next_payday_summary(today: str | None = None):
         except Exception:
             continue
 
-        # Bills due from today through next Friday inclusive
         if current_day <= due <= next_friday:
             due_items.append({
                 "doc_id": row.doc_id,
