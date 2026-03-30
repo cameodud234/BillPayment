@@ -38,7 +38,7 @@ final class APIService {
     private init() {}
     
     func fetchNextPaydaySummary(today: String? = nil) async throws -> NextPaydaySummaryResponse {
-        var urlString = "\(baseURL)/next-payday-summary"
+        var urlString = "\(baseURL)/summaries/next-payday"
 
         if let today, !today.isEmpty {
             urlString += "?today=\(today)"
@@ -101,7 +101,7 @@ final class APIService {
     }
 
     func addPayment(_ requestBody: AddPaymentRequest) async throws {
-        guard let url = URL(string: "\(baseURL)/add") else {
+        guard let url = URL(string: "\(baseURL)/payments") else {
             throw APIServiceError.invalidURL
         }
 
@@ -127,7 +127,7 @@ final class APIService {
     }
 
     func calculateWeeklyBudget(payday: String) async throws -> WeeklyBudgetResponse {
-        guard let url = URL(string: "\(baseURL)/weekly") else {
+        guard let url = URL(string: "\(baseURL)/payments/weekly") else {
             throw APIServiceError.invalidURL
         }
 
