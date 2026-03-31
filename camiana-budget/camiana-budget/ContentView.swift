@@ -7,36 +7,6 @@
 
 import SwiftUI
 
-struct PaymentRowView: View {
-    let payment: Payment
-
-    var body: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(payment.name)
-                    .font(.headline)
-
-                if let category = payment.category, !category.isEmpty {
-                    Text(category)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
-            }
-
-            Spacer()
-
-            VStack(alignment: .trailing, spacing: 4) {
-                Text("$\(payment.amount, specifier: "%.2f")")
-                    .font(.headline)
-                Text(payment.due_date)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            }
-        }
-        .padding(.vertical, 4)
-    }
-}
-
 struct ContentView: View {
     @State private var payments: [Payment] = []
     @State private var weeklyPayments: [Payment] = []
@@ -181,7 +151,7 @@ struct ContentView: View {
         defer { isLoading = false }
 
         do {
-            let fetched = try await APIService.shared.fetchPayments()
+            let fetched = try await PaymentsAPIService.shared.fetchPayments()
             payments = fetched
         } catch {
             showError(error.localizedDescription)
@@ -214,7 +184,7 @@ struct ContentView: View {
         )
 
         do {
-            try await APIService.shared.addPayment(request)
+            try await PaymentsAPIService.shared.addPayment(request)
 
             name = ""
             amount = ""
@@ -235,7 +205,7 @@ struct ContentView: View {
         let paydayString = formatter.string(from: payday)
 
         do {
-            let result = try await APIService.shared.calculateWeeklyBudget(payday: paydayString)
+            let result = try await PaymentsAPIService.shared.calculateWeeklyBudget(payday: paydayString)
             weeklyTotal = result.total
             weeklyPayments = result.payments
         } catch {

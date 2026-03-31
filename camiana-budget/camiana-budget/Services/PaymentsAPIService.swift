@@ -1,50 +1,12 @@
-//
-//  apiservice.swift
-//  camiana-budget
-//
-//  Created by Cameron Dudley on 3/21/26.
-//
-
 import Foundation
 
-enum APIServiceError: LocalizedError {
-    case invalidURL
-    case invalidResponse
-    case serverError(String)
-    case decodingError
-    case encodingError
-
-    var errorDescription: String? {
-        switch self {
-        case .invalidURL:
-            return "Invalid server URL."
-        case .invalidResponse:
-            return "Invalid response from server."
-        case .serverError(let message):
-            return message
-        case .decodingError:
-            return "Could not decode server response."
-        case .encodingError:
-            return "Could not encode request."
-        }
-    }
-}
-
-final class APIService {
-    static let shared = APIService()
-
-    private let baseURL = "http://127.0.0.1:8000"
+final class PaymentsAPIService {
+    static let shared = PaymentsAPIService()
 
     private init() {}
-    
-    func fetchNextPaydaySummary(today: String? = nil) async throws -> NextPaydaySummaryResponse {
-        var urlString = "\(baseURL)/next-payday-summary"
 
-        if let today, !today.isEmpty {
-            urlString += "?today=\(today)"
-        }
-
-        guard let url = URL(string: urlString) else {
+    func fetchPayments() async throws -> [Payment] {
+        guard let url = URL(string: "\(APIConfig.baseURL)/payments") else {
             throw APIServiceError.invalidURL
         }
 
@@ -59,49 +21,14 @@ final class APIService {
         }
 
         do {
-            return try JSONDecoder().decode(NextPaydaySummaryResponse.self, from: data)
+            return try JSONDecoder().decode([Payment].self, from: data)
         } catch {
-            print("DECODING ERROR:", error)
-            print("RAW BODY:", String(data: data, encoding: .utf8) ?? "No body")
             throw APIServiceError.decodingError
         }
     }
 
-    func fetchPayments() async throws -> [Payment] {
-        guard let url = URL(string: "\(baseURL)/payments") else {
-            throw APIServiceError.invalidURL
-        }
-
-        do {
-            let (data, response) = try await URLSession.shared.data(from: url)
-
-            print("RAW RESPONSE:")
-            print(String(data: data, encoding: .utf8) ?? "No response body")
-            print("URL RESPONSE:")
-            print(response)
-
-            guard let httpResponse = response as? HTTPURLResponse else {
-                throw APIServiceError.invalidResponse
-            }
-
-            guard 200..<300 ~= httpResponse.statusCode else {
-                throw try parseServerError(from: data)
-            }
-
-            do {
-                return try JSONDecoder().decode([Payment].self, from: data)
-            } catch {
-                print("DECODING ERROR:", error)
-                throw APIServiceError.decodingError
-            }
-        } catch {
-            print("NETWORK ERROR:", error)
-            throw error
-        }
-    }
-
     func addPayment(_ requestBody: AddPaymentRequest) async throws {
-        guard let url = URL(string: "\(baseURL)/add") else {
+        guard let url = URL(string: "\(APIConfig.baseURL)/payments") else {
             throw APIServiceError.invalidURL
         }
 
@@ -127,7 +54,7 @@ final class APIService {
     }
 
     func calculateWeeklyBudget(payday: String) async throws -> WeeklyBudgetResponse {
-        guard let url = URL(string: "\(baseURL)/weekly") else {
+        guard let url = URL(string: "\(APIConfig.baseURL)/payments/weekly") else {
             throw APIServiceError.invalidURL
         }
 
