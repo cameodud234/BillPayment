@@ -4,7 +4,7 @@ import os
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-DB_PATH = os.path.join(BASE_DIR, "data", "bills.json")
+DB_PATH = os.path.join(BASE_DIR, "data", "app.db")
 
 API_HOST = "127.0.0.1"
 API_PORT = 8000
