@@ -6,7 +6,7 @@ app = FastAPI(title="Camiana Budget API")
 init_db()
 
 app.include_router(payments.router)
-# app.include_router(people.router)
+app.include_router(people.router)
 app.include_router(accounts.router)
 app.include_router(summaries.router)
 

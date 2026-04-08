@@ -1,7 +1,6 @@
 from datetime import datetime, timedelta, date
 from app.services import payments, accounts
-
-WIFE_PAYDAY_ANCHOR = date(2026, 3, 20)
+from app.config import BIWEEKLY_PAYDAY_ANCHOR
 
 def get_next_friday(today: date) -> date:
     days_ahead = 4 - today.weekday()
@@ -10,7 +9,7 @@ def get_next_friday(today: date) -> date:
     return today + timedelta(days=days_ahead)
 
 def is_wife_payday(check_date: date) -> bool:
-    return (check_date - WIFE_PAYDAY_ANCHOR).days % 14 == 0
+    return (check_date - BIWEEKLY_PAYDAY_ANCHOR).days % 14 == 0
 
 def get_next_payday_summary(today_str: str | None = None):
     if today_str:

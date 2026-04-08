@@ -1,4 +1,5 @@
 from app.db.database import get_connection
+from app.models import account_models
 
 
 def get_all_accounts():
@@ -6,7 +7,7 @@ def get_all_accounts():
     cursor = conn.cursor()
 
     cursor.execute("""
-        SELECT id, person_id, name, type, balance, updated_at
+        SELECT id, person_id, name, account_type, balance, updated_at
         FROM accounts
         ORDER BY name
     """)
@@ -32,17 +33,88 @@ def get_total_balance():
     return row["total_balance"]
 
 
-def create_account(person_id, name: str, account_type: str, balance: float, updated_at: str):
+def create_account(data: account_models.AddAccountRequest):
     conn = get_connection()
     cursor = conn.cursor()
 
     cursor.execute("""
-        INSERT INTO accounts (person_id, name, type, balance, updated_at)
+        INSERT INTO accounts (person_id, name, account_type, balance, updated_at)
         VALUES (?, ?, ?, ?, ?)
-    """, (person_id, name, account_type, balance, updated_at))
+    """, (
+        data.person_id,
+        data.name,
+        data.account_type.value,
+        data.balance,
+        data.updated_at
+    ))
 
     conn.commit()
     account_id = cursor.lastrowid
     conn.close()
 
     return {"status": "ok", "id": account_id}
+
+
+# 🔧 UPDATE
+def update_account(account_id: int, data: account_models.UpdateAccountRequest):
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    # Check existence
+    cursor.execute("""
+        SELECT id FROM accounts WHERE id = ?
+    """, (account_id,))
+    row = cursor.fetchone()
+
+    if row is None:
+        conn.close()
+        return {"status": "error", "message": "Account not found"}
+
+    cursor.execute("""
+        UPDATE accounts
+        SET person_id = ?, name = ?, account_type = ?, balance = ?, updated_at = ?
+        WHERE id = ?
+    """, (
+        data.person_id,
+        data.name,
+        data.account_type.value,
+        data.balance,
+        data.updated_at,
+        account_id
+    ))
+
+    conn.commit()
+    conn.close()
+
+    return {
+        "status": "ok",
+        "updated_id": account_id
+    }
+
+
+# 🗑 DELETE
+def delete_account(account_id: int):
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    # Check existence
+    cursor.execute("""
+        SELECT id FROM accounts WHERE id = ?
+    """, (account_id,))
+    row = cursor.fetchone()
+
+    if row is None:
+        conn.close()
+        return {"status": "error", "message": "Account not found"}
+
+    cursor.execute("""
+        DELETE FROM accounts WHERE id = ?
+    """, (account_id,))
+
+    conn.commit()
+    conn.close()
+
+    return {
+        "status": "ok",
+        "deleted_id": account_id
+    }

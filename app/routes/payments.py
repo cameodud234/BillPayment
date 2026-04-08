@@ -1,13 +1,9 @@
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
 from app.services import payments
 from app.models import payment_models
-from datetime import datetime, timedelta
+from datetime import datetime
 
 router = APIRouter()
-
-class WeeklyBudgetRequest(BaseModel):
-    payday: str
 
 @router.get("/payments")
 def get_payments():
@@ -26,21 +22,11 @@ def add_payment(data: payment_models.AddPaymentRequest):
     if data.due_day is not None and not (1 <= data.due_day <= 31):
         raise HTTPException(status_code=400, detail="due_day must be between 1 and 31")
 
-    result = payments.create_payment(
-        name=data.name,
-        amount=data.amount,
-        due_date=data.due_date,
-        category=data.category,
-        account_id=data.account_id,
-        is_recurring=data.is_recurring,
-        due_day=data.due_day
-    )
-
-    return result
+    return payments.create_payment(data)
 
 
 @router.post("/payments/weekly")
-def weekly_budget(data: WeeklyBudgetRequest):
+def weekly_budget(data: payment_models.WeeklyBudgetRequest):
     try:
         payday = datetime.strptime(data.payday, "%Y-%m-%d").date()
     except ValueError:

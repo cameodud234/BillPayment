@@ -32,7 +32,7 @@ def init_db():
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         person_id INTEGER,
         name TEXT NOT NULL,
-        type TEXT,
+        account_type TEXT,
         balance REAL DEFAULT 0,
         updated_at TEXT,
         created_at TEXT DEFAULT CURRENT_TIMESTAMP,
@@ -48,11 +48,26 @@ def init_db():
         amount REAL NOT NULL,
         due_date TEXT NOT NULL,
         category TEXT,
+        account_id INTEGER,
+        split_method TEXT NOT NULL,
         is_recurring INTEGER DEFAULT 0,
         due_day INTEGER,
-        account_id INTEGER,
         created_at TEXT DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY(account_id) REFERENCES accounts(id) ON DELETE SET NULL
+    )
+    """)
+
+    # PAYMENT ALLOCATIONS
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS payment_allocations (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        payment_id INTEGER NOT NULL,
+        person_id INTEGER NOT NULL,
+        share_percentage REAL,
+        allocated_amount REAL NOT NULL,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY(payment_id) REFERENCES payments(id) ON DELETE CASCADE,
+        FOREIGN KEY(person_id) REFERENCES people(id) ON DELETE CASCADE
     )
     """)
 
