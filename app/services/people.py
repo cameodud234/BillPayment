@@ -1,6 +1,5 @@
-from fastapi import HTTPException
 from app.db.database import get_connection
-from app.models import person_models
+from app.domain.person import PersonData
 
 
 def get_all_people():
@@ -38,15 +37,20 @@ def get_person_by_id(person_id: int):
     return dict(row)
 
 
-def create_person(data: person_models.AddPersonRequest):
-
+def create_person(data: PersonData):
     conn = get_connection()
     cursor = conn.cursor()
 
     cursor.execute("""
         INSERT INTO people (name, pay_schedule, payday, anchor_date, average_income)
         VALUES (?, ?, ?, ?, ?)
-    """, (data.name, data.pay_schedule, data.payday, data.anchor_date, data.average_income))
+    """, (
+        data.name,
+        data.pay_schedule,
+        data.payday,
+        data.anchor_date,
+        data.average_income
+    ))
 
     conn.commit()
     person_id = cursor.lastrowid
@@ -57,7 +61,8 @@ def create_person(data: person_models.AddPersonRequest):
         "id": person_id
     }
 
-def update_person(person_id: int, data: person_models.UpdatePersonRequest):
+
+def update_person(person_id: int, data: PersonData):
     conn = get_connection()
     cursor = conn.cursor()
 
@@ -90,13 +95,12 @@ def update_person(person_id: int, data: person_models.UpdatePersonRequest):
         "status": "ok",
         "updated_id": person_id
     }
-    
+
 
 def delete_person(person_id: int):
     conn = get_connection()
     cursor = conn.cursor()
 
-    # Check if person exists
     cursor.execute("""
         SELECT id FROM people WHERE id = ?
     """, (person_id,))
@@ -106,7 +110,6 @@ def delete_person(person_id: int):
         conn.close()
         return {"status": "error", "message": "Person not found"}
 
-    # Delete person
     cursor.execute("""
         DELETE FROM people WHERE id = ?
     """, (person_id,))

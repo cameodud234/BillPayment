@@ -1,5 +1,5 @@
 from app.db.database import get_connection
-from app.models import account_models
+from app.domain.account import AccountData
 
 
 def get_all_accounts():
@@ -7,7 +7,7 @@ def get_all_accounts():
     cursor = conn.cursor()
 
     cursor.execute("""
-        SELECT id, person_id, name, account_type, balance, updated_at
+        SELECT id, person_id, name, account_type, balance, updated_at, created_at
         FROM accounts
         ORDER BY name
     """)
@@ -16,6 +16,25 @@ def get_all_accounts():
     conn.close()
 
     return [dict(row) for row in rows]
+
+
+def get_account_by_id(account_id: int):
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT id, person_id, name, account_type, balance, updated_at, created_at
+        FROM accounts
+        WHERE id = ?
+    """, (account_id,))
+
+    row = cursor.fetchone()
+    conn.close()
+
+    if row is None:
+        return None
+
+    return dict(row)
 
 
 def get_total_balance():
@@ -33,7 +52,7 @@ def get_total_balance():
     return row["total_balance"]
 
 
-def create_account(data: account_models.AddAccountRequest):
+def create_account(data: AccountData):
     conn = get_connection()
     cursor = conn.cursor()
 
@@ -52,15 +71,16 @@ def create_account(data: account_models.AddAccountRequest):
     account_id = cursor.lastrowid
     conn.close()
 
-    return {"status": "ok", "id": account_id}
+    return {
+        "status": "ok",
+        "id": account_id
+    }
 
 
-# 🔧 UPDATE
-def update_account(account_id: int, data: account_models.UpdateAccountRequest):
+def update_account(account_id: int, data: AccountData):
     conn = get_connection()
     cursor = conn.cursor()
 
-    # Check existence
     cursor.execute("""
         SELECT id FROM accounts WHERE id = ?
     """, (account_id,))
@@ -92,12 +112,10 @@ def update_account(account_id: int, data: account_models.UpdateAccountRequest):
     }
 
 
-# 🗑 DELETE
 def delete_account(account_id: int):
     conn = get_connection()
     cursor = conn.cursor()
 
-    # Check existence
     cursor.execute("""
         SELECT id FROM accounts WHERE id = ?
     """, (account_id,))
