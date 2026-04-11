@@ -1,8 +1,10 @@
 from enum import Enum
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
-class Category(str, Enum):
-    names = "Names"
+class WeeklyBudgetRequest(BaseModel):
+    payday: str
+
+class PaymentCategory(str, Enum):
     housing = "Housing"
     utilities = "Utilities"
     groceries = "Groceries"
@@ -14,8 +16,18 @@ class Category(str, Enum):
     other = "Other"
 
 
+class SplitMethod(str, Enum):
+    equal = "equal"
+    income_ratio = "income_ratio"
+    single = "single"
+
+
 class AddPaymentRequest(BaseModel):
     name: str
-    amount: float
+    amount: float = Field(gt=0)
     due_date: str
-    category: Category
+    category: PaymentCategory
+    account_id: int | None = None
+    split_method: SplitMethod
+    is_recurring: int = 0
+    due_day: int | None = None

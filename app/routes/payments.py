@@ -1,90 +1,41 @@
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
-from tinydb import TinyDB
-from app.config import DB_PATH
-from datetime import datetime, timedelta
+from datetime import datetime
+from app.services import payments
+from app.models import payment_models
+from app.domain.payment import PaymentData, WeeklyBudgetData
 
 router = APIRouter()
-
-db = TinyDB(DB_PATH)
-payments_table = db.table("payments")
-
-
-class AddPaymentRequest(BaseModel):
-    name: str
-    amount: float
-    due_date: str
-    category: str = ""
-
-
-class WeeklyBudgetRequest(BaseModel):
-    payday: str
 
 
 @router.get("/payments")
 def get_payments():
-    rows = payments_table.all()
-    rows.sort(key=lambda x: x.get("due_date", ""))
-
-    return [
-        {
-            "doc_id": row.doc_id,
-            "name": row.get("name", ""),
-            "amount": row.get("amount", 0.0),
-            "due_date": row.get("due_date", ""),
-            "category": row.get("category", "")
-        }
-        for row in rows
-    ]
+    return payments.get_all_payments()
 
 
 @router.post("/payments")
-def add_payment(data: AddPaymentRequest):
+def add_payment(data: payment_models.AddPaymentRequest):
     try:
         datetime.strptime(data.due_date, "%Y-%m-%d")
     except ValueError:
         raise HTTPException(status_code=400, detail="due_date must be YYYY-MM-DD")
 
-    doc_id = payments_table.insert({
-        "name": data.name,
-        "amount": data.amount,
-        "due_date": data.due_date,
-        "category": data.category
-    })
+    if data.due_day is not None and not (1 <= data.due_day <= 31):
+        raise HTTPException(status_code=400, detail="due_day must be between 1 and 31")
 
-    return {"status": "ok", "doc_id": doc_id}
+    try:
+        payment = PaymentData(**data.model_dump())
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    return payments.create_payment(payment)
 
 
 @router.post("/payments/weekly")
-def weekly_budget(data: WeeklyBudgetRequest):
+def weekly_budget(data: payment_models.WeeklyBudgetRequest):
     try:
-        payday = datetime.strptime(data.payday, "%Y-%m-%d").date()
+        datetime.strptime(data.payday, "%Y-%m-%d")
     except ValueError:
         raise HTTPException(status_code=400, detail="payday must be YYYY-MM-DD")
 
-    end = payday + timedelta(days=6)
-
-    rows = payments_table.all()
-    filtered = []
-
-    for row in rows:
-        try:
-            due = datetime.strptime(row["due_date"], "%Y-%m-%d").date()
-        except Exception:
-            continue
-
-        if payday <= due <= end:
-            filtered.append({
-                "doc_id": row.doc_id,
-                "name": row.get("name", ""),
-                "amount": row.get("amount", 0.0),
-                "due_date": row.get("due_date", ""),
-                "category": row.get("category", "")
-            })
-
-    total = sum(item["amount"] for item in filtered)
-
-    return {
-        "total": total,
-        "payments": filtered
-    }
+    budget = WeeklyBudgetData(**data.model_dump())
+    return payments.get_weekly_budget(budget)

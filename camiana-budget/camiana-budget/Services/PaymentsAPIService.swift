@@ -38,6 +38,7 @@ final class PaymentsAPIService {
 
         do {
             request.httpBody = try JSONEncoder().encode(requestBody)
+            print("POST BODY:", String(data: request.httpBody!, encoding: .utf8)!)
         } catch {
             throw APIServiceError.encodingError
         }

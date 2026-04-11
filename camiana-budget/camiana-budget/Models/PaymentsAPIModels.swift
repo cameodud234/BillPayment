@@ -12,6 +12,9 @@ struct AddPaymentRequest: Codable {
     let amount: Double
     let due_date: String
     let category: String
+    let account_id: Int?
+    let is_recurring: Int
+    let due_day: Int?
 }
 
 struct WeeklyBudgetRequest: Codable {

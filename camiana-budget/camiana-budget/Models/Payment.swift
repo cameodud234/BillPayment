@@ -1,5 +1,5 @@
 //
-//  payment.swift
+//  Payment.swift
 //  camiana-budget
 //
 //  Created by Cameron Dudley on 3/21/26.
