@@ -15,7 +15,7 @@ class PaymentData:
     due_date: str
     category: PaymentCategory
     account_id: Optional[int] = None
-    split_method: SplitMethod = SplitMethod.equal
+    split_method: SplitMethod = SplitMethod
     is_recurring: int = 0
     due_day: Optional[int] = None
 

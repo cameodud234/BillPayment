@@ -15,12 +15,10 @@ class PaymentCategory(str, Enum):
     business = "Business"
     other = "Other"
 
-
 class SplitMethod(str, Enum):
     equal = "equal"
     income_ratio = "income_ratio"
     single = "single"
-
 
 class AddPaymentRequest(BaseModel):
     name: str

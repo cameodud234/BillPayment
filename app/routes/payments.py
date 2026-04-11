@@ -19,15 +19,17 @@ def add_payment(data: payment_models.AddPaymentRequest):
     except ValueError:
         raise HTTPException(status_code=400, detail="due_date must be YYYY-MM-DD")
 
-    if data.due_day is not None and not (1 <= data.due_day <= 31):
-        raise HTTPException(status_code=400, detail="due_day must be between 1 and 31")
-
     try:
         payment = PaymentData(**data.model_dump())
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-    return payments.create_payment(payment)
+    result = payments.create_payment(payment)
+
+    if result["status"] == "error":
+        raise HTTPException(status_code=400, detail=result["message"])
+
+    return result
 
 
 @router.post("/payments/weekly")
