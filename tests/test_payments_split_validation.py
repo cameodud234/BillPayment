@@ -29,15 +29,15 @@ def test_income_ratio_fails_when_no_people_exist(test_db):
             due_date="2026-04-15",
             category=PaymentCategory.housing,
             account_id=None,
+            participant_ids=[1],
             split_method=SplitMethod.income_ratio,
             is_recurring=False,
-            due_day=None,
-            single_person_id=None
+            due_day=None
         )
     )
 
     assert result["status"] == "error"
-    assert result["message"] == "Cannot use income_ratio split: no people exist."
+    assert result["message"] == "One or more participant_ids do not exist."
 
 
 def test_income_ratio_fails_when_income_missing(test_db):
@@ -51,7 +51,7 @@ def test_income_ratio_fails_when_income_missing(test_db):
         )
     )
 
-    people.create_person(
+    p2 = people.create_person(
         PersonData(
             name="Wife",
             payday="Friday",
@@ -70,10 +70,10 @@ def test_income_ratio_fails_when_income_missing(test_db):
             due_date="2026-04-15",
             category=PaymentCategory.housing,
             account_id=account_id,
+            participant_ids=[p1["id"], p2["id"]],
             split_method=SplitMethod.income_ratio,
             is_recurring=False,
-            due_day=None,
-            single_person_id=None
+            due_day=None
         )
     )
 
@@ -93,7 +93,7 @@ def test_income_ratio_fails_when_total_income_is_zero(test_db):
         )
     )
 
-    people.create_person(
+    p2 = people.create_person(
         PersonData(
             name="Wife",
             payday="Friday",
@@ -112,10 +112,10 @@ def test_income_ratio_fails_when_total_income_is_zero(test_db):
             due_date="2026-04-15",
             category=PaymentCategory.housing,
             account_id=account_id,
+            participant_ids=[p1["id"], p2["id"]],
             split_method=SplitMethod.income_ratio,
             is_recurring=False,
-            due_day=None,
-            single_person_id=None
+            due_day=None
         )
     )
 
@@ -123,7 +123,7 @@ def test_income_ratio_fails_when_total_income_is_zero(test_db):
     assert result["message"] == "Cannot use income_ratio split: total average_income must be greater than 0."
 
 
-def test_equal_fails_with_fewer_than_two_people(test_db):
+def test_equal_with_one_participant_succeeds(test_db):
     p1 = people.create_person(
         PersonData(
             name="Only Person",
@@ -138,38 +138,23 @@ def test_equal_fails_with_fewer_than_two_people(test_db):
 
     result = payments.create_payment(
         PaymentData(
-            name="Internet",
+            name="Personal Internet",
             amount=100,
             due_date="2026-04-15",
             category=PaymentCategory.utilities,
             account_id=account_id,
+            participant_ids=[p1["id"]],
             split_method=SplitMethod.equal,
             is_recurring=False,
-            due_day=None,
-            single_person_id=None
+            due_day=None
         )
     )
 
-    assert result["status"] == "error"
-    assert result["message"] == "Cannot use equal split: at least 2 people are required."
+    assert result["status"] == "ok"
+    assert "id" in result
 
 
-def test_single_fails_when_person_id_missing(test_db):
-    with pytest.raises(ValueError, match="single_person_id is required when split_method is 'single'"):
-        PaymentData(
-            name="Personal Bill",
-            amount=50,
-            due_date="2026-04-15",
-            category=PaymentCategory.other,
-            account_id=None,
-            split_method=SplitMethod.single,
-            is_recurring=False,
-            due_day=None,
-            single_person_id=None
-        )
-
-
-def test_single_fails_when_person_id_does_not_exist(test_db):
+def test_equal_fails_when_participant_id_does_not_exist(test_db):
     p1 = people.create_person(
         PersonData(
             name="Owner",
@@ -184,20 +169,20 @@ def test_single_fails_when_person_id_does_not_exist(test_db):
 
     result = payments.create_payment(
         PaymentData(
-            name="Personal Bill",
-            amount=50,
+            name="Utilities",
+            amount=100,
             due_date="2026-04-15",
-            category=PaymentCategory.other,
+            category=PaymentCategory.utilities,
             account_id=account_id,
-            split_method=SplitMethod.single,
+            participant_ids=[p1["id"], 999999],
+            split_method=SplitMethod.equal,
             is_recurring=False,
-            due_day=None,
-            single_person_id=999999
+            due_day=None
         )
     )
 
     assert result["status"] == "error"
-    assert result["message"] == "single_person_id does not exist."
+    assert result["message"] == "One or more participant_ids do not exist."
 
 
 def test_income_ratio_succeeds_with_valid_income_data(test_db):
@@ -211,7 +196,7 @@ def test_income_ratio_succeeds_with_valid_income_data(test_db):
         )
     )
 
-    people.create_person(
+    p2 = people.create_person(
         PersonData(
             name="Wife",
             payday="Friday",
@@ -230,10 +215,10 @@ def test_income_ratio_succeeds_with_valid_income_data(test_db):
             due_date="2026-04-15",
             category=PaymentCategory.housing,
             account_id=account_id,
+            participant_ids=[p1["id"], p2["id"]],
             split_method=SplitMethod.income_ratio,
             is_recurring=False,
-            due_day=None,
-            single_person_id=None
+            due_day=None
         )
     )
 

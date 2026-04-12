@@ -4,18 +4,20 @@ from main import app
 client = TestClient(app)
 
 
-def create_person_and_account():
+def create_person(name: str, average_income: float | None = 1200):
     person_payload = {
-        "name": "Payment Owner",
+        "name": name,
         "payday": "Friday",
         "pay_schedule": "weekly",
         "anchor_date": None,
-        "average_income": 1200
+        "average_income": average_income
     }
     person_response = client.post("/people", json=person_payload)
     assert person_response.status_code == 200
-    person_id = person_response.json()["id"]
+    return person_response.json()["id"]
 
+
+def create_account(person_id: int):
     account_payload = {
         "person_id": person_id,
         "name": "Payment Checking",
@@ -25,9 +27,14 @@ def create_person_and_account():
     }
     account_response = client.post("/accounts", json=account_payload)
     assert account_response.status_code == 200
-    account_id = account_response.json()["id"]
+    return account_response.json()["id"]
 
-    return person_id, account_id
+
+def create_people_and_account():
+    p1 = create_person("Payment Owner")
+    p2 = create_person("Second Person")
+    account_id = create_account(p1)
+    return p1, p2, account_id
 
 
 def test_get_payments_route():
@@ -37,7 +44,7 @@ def test_get_payments_route():
 
 
 def test_create_payment_route_equal():
-    _, account_id = create_person_and_account()
+    p1, p2, account_id = create_people_and_account()
 
     payload = {
         "name": "Internet",
@@ -45,10 +52,10 @@ def test_create_payment_route_equal():
         "due_date": "2026-04-15",
         "category": "Utilities",
         "account_id": account_id,
+        "participant_ids": [p1, p2],
         "split_method": "equal",
         "is_recurring": False,
-        "due_day": None,
-        "single_person_id": None
+        "due_day": None
     }
 
     response = client.post("/payments", json=payload)
@@ -59,8 +66,9 @@ def test_create_payment_route_equal():
     assert "id" in body
 
 
-def test_create_payment_route_single():
-    person_id, account_id = create_person_and_account()
+def test_create_payment_route_single_person_as_equal():
+    person_id = create_person("Solo Owner")
+    account_id = create_account(person_id)
 
     payload = {
         "name": "Personal Subscription",
@@ -68,10 +76,10 @@ def test_create_payment_route_single():
         "due_date": "2026-04-16",
         "category": "Entertainment",
         "account_id": account_id,
-        "split_method": "single",
+        "participant_ids": [person_id],
+        "split_method": "equal",
         "is_recurring": False,
-        "due_day": None,
-        "single_person_id": person_id
+        "due_day": None
     }
 
     response = client.post("/payments", json=payload)
@@ -83,7 +91,8 @@ def test_create_payment_route_single():
 
 
 def test_create_payment_invalid_due_date():
-    _, account_id = create_person_and_account()
+    person_id = create_person("Bad Date Owner")
+    account_id = create_account(person_id)
 
     payload = {
         "name": "Bad Date Payment",
@@ -91,10 +100,10 @@ def test_create_payment_invalid_due_date():
         "due_date": "04-15-2026",
         "category": "Other",
         "account_id": account_id,
+        "participant_ids": [person_id],
         "split_method": "equal",
         "is_recurring": False,
-        "due_day": None,
-        "single_person_id": None
+        "due_day": None
     }
 
     response = client.post("/payments", json=payload)
@@ -104,7 +113,8 @@ def test_create_payment_invalid_due_date():
 
 
 def test_create_payment_invalid_due_day():
-    _, account_id = create_person_and_account()
+    person_id = create_person("Bad Due Day Owner")
+    account_id = create_account(person_id)
 
     payload = {
         "name": "Bad Due Day",
@@ -112,16 +122,38 @@ def test_create_payment_invalid_due_day():
         "due_date": "2026-04-15",
         "category": "Utilities",
         "account_id": account_id,
+        "participant_ids": [person_id],
         "split_method": "equal",
         "is_recurring": True,
-        "due_day": 40,
-        "single_person_id": None
+        "due_day": 40
     }
 
     response = client.post("/payments", json=payload)
 
     assert response.status_code == 400
     assert response.json()["detail"] == "due_day must be between 1 and 31"
+
+
+def test_create_payment_empty_participants():
+    person_id = create_person("Empty Participants Owner")
+    account_id = create_account(person_id)
+
+    payload = {
+        "name": "No Participants Payment",
+        "amount": 80,
+        "due_date": "2026-04-15",
+        "category": "Utilities",
+        "account_id": account_id,
+        "participant_ids": [],
+        "split_method": "equal",
+        "is_recurring": False,
+        "due_day": None
+    }
+
+    response = client.post("/payments", json=payload)
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "participant_ids must not be empty"
 
 
 def test_weekly_budget_route():

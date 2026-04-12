@@ -9,7 +9,17 @@ def get_all_payments():
     cursor = conn.cursor()
 
     cursor.execute("""
-        SELECT id, name, amount, due_date, category, account_id, split_method, is_recurring, due_day, created_at
+        SELECT
+            id,
+            name,
+            amount,
+            due_date,
+            category,
+            account_id,
+            split_method,
+            is_recurring,
+            due_day,
+            created_at
         FROM payments
         ORDER BY due_date
     """)
@@ -18,6 +28,34 @@ def get_all_payments():
     conn.close()
 
     return [dict(row) for row in rows]
+
+
+def get_payments_due_between(start_date, end_date):
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT
+            id,
+            name,
+            amount,
+            due_date,
+            category,
+            account_id,
+            split_method,
+            is_recurring,
+            due_day,
+            created_at
+        FROM payments
+        WHERE due_date BETWEEN ? AND ?
+        ORDER BY due_date
+    """, (start_date.isoformat(), end_date.isoformat()))
+
+    rows = cursor.fetchall()
+    conn.close()
+
+    return [dict(row) for row in rows]
+
 
 def create_payment(data: PaymentData):
     conn = get_connection()
@@ -44,6 +82,8 @@ def create_payment(data: PaymentData):
 
         payment_id = cursor.lastrowid
 
+        payment_allocation.create_payment_allocations(cursor, payment_id, data)
+
         conn.commit()
         return {
             "status": "ok",
@@ -60,22 +100,6 @@ def create_payment(data: PaymentData):
     finally:
         conn.close()
 
-
-def get_payments_due_between(start_date, end_date):
-    conn = get_connection()
-    cursor = conn.cursor()
-
-    cursor.execute("""
-        SELECT id, name, amount, due_date, category, account_id, split_method, is_recurring, due_day, created_at
-        FROM payments
-        WHERE due_date BETWEEN ? AND ?
-        ORDER BY due_date
-    """, (start_date.isoformat(), end_date.isoformat()))
-
-    rows = cursor.fetchall()
-    conn.close()
-
-    return [dict(row) for row in rows]
 
 def get_weekly_budget(data: WeeklyBudgetData):
     payday = datetime.strptime(data.payday, "%Y-%m-%d").date()

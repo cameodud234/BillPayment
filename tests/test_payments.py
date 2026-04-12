@@ -1,12 +1,11 @@
+import pytest
+
 from app.services import payments, people, accounts
 from app.domain.person import PersonData
 from app.domain.account import AccountData
 from app.domain.payment import PaymentData, WeeklyBudgetData
 from app.models.account_models import AccountType
 from app.models.payment_models import PaymentCategory, SplitMethod
-import pytest
-from app.domain.payment import PaymentData
-
 
 
 def test_create_payment(test_db):
@@ -19,7 +18,8 @@ def test_create_payment(test_db):
             average_income=1000
         )
     )
-    people.create_person(
+
+    p2 = people.create_person(
         PersonData(
             name="Wife",
             payday="Friday",
@@ -45,10 +45,11 @@ def test_create_payment(test_db):
             amount=100,
             due_date="2026-04-10",
             category=PaymentCategory.utilities,
-            account_id=acct["id"],
+            participant_ids=[p1["id"], p2["id"]],
             split_method=SplitMethod.equal,
+            account_id=acct["id"],
             is_recurring=False,
-            due_day=None,
+            due_day=None
         )
     )
 
@@ -65,7 +66,6 @@ def test_weekly_budget(test_db):
     assert "payments" in result
 
 
-
 def test_recurring_payment_requires_due_day():
     with pytest.raises(ValueError, match="due_day is required for recurring payments"):
         PaymentData(
@@ -73,6 +73,7 @@ def test_recurring_payment_requires_due_day():
             amount=2800,
             due_date="2026-04-01",
             category=PaymentCategory.housing,
+            participant_ids=[1],
             split_method=SplitMethod.equal,
             is_recurring=True,
             due_day=None
@@ -86,6 +87,7 @@ def test_due_day_must_be_between_1_and_31():
             amount=100,
             due_date="2026-04-15",
             category=PaymentCategory.utilities,
+            participant_ids=[1],
             split_method=SplitMethod.equal,
             is_recurring=True,
             due_day=35
@@ -99,6 +101,33 @@ def test_payment_amount_must_be_positive():
             amount=0,
             due_date="2026-04-10",
             category=PaymentCategory.other,
+            participant_ids=[1],
+            split_method=SplitMethod.equal,
+            is_recurring=False
+        )
+
+
+def test_participant_ids_must_not_be_empty():
+    with pytest.raises(ValueError, match="participant_ids must not be empty"):
+        PaymentData(
+            name="No Participants",
+            amount=50,
+            due_date="2026-04-10",
+            category=PaymentCategory.other,
+            participant_ids=[],
+            split_method=SplitMethod.equal,
+            is_recurring=False
+        )
+
+
+def test_participant_ids_must_not_contain_duplicates():
+    with pytest.raises(ValueError, match="participant_ids must not contain duplicates"):
+        PaymentData(
+            name="Duplicate Participants",
+            amount=50,
+            due_date="2026-04-10",
+            category=PaymentCategory.other,
+            participant_ids=[1, 1],
             split_method=SplitMethod.equal,
             is_recurring=False
         )
