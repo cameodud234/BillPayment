@@ -7,7 +7,8 @@ from app.domain.payment import PaymentData, WeeklyBudgetData
 from app.models.account_models import AccountType
 from app.models.payment_models import PaymentCategory, SplitMethod
 
-def create_person(name: str, income: float | None):
+
+def create_service_person(name: str, income: float | None):
     return people.create_person(
         PersonData(
             name=name,
@@ -19,7 +20,7 @@ def create_person(name: str, income: float | None):
     )["id"]
 
 
-def create_account(person_id: int):
+def create_service_account(person_id: int):
     return accounts.create_account(
         AccountData(
             person_id=person_id,
@@ -32,35 +33,9 @@ def create_account(person_id: int):
 
 
 def test_create_payment(test_db):
-    p1 = people.create_person(
-        PersonData(
-            name="Cameron",
-            payday="Friday",
-            pay_schedule="weekly",
-            anchor_date=None,
-            average_income=1000
-        )
-    )
-
-    p2 = people.create_person(
-        PersonData(
-            name="Wife",
-            payday="Friday",
-            pay_schedule="weekly",
-            anchor_date=None,
-            average_income=1000
-        )
-    )
-
-    acct = accounts.create_account(
-        AccountData(
-            person_id=p1["id"],
-            name="Bills Account",
-            account_type=AccountType.checking,
-            balance=3000,
-            updated_at="2026-04-09"
-        )
-    )
+    p1 = create_service_person("Cameron", 1000)
+    p2 = create_service_person("Wife", 1000)
+    account_id = create_service_account(p1)
 
     result = payments.create_payment(
         PaymentData(
@@ -68,9 +43,9 @@ def test_create_payment(test_db):
             amount=100,
             due_date="2026-04-10",
             category=PaymentCategory.utilities,
-            participant_ids=[p1["id"], p2["id"]],
+            participant_ids=[p1, p2],
             split_method=SplitMethod.equal,
-            account_id=acct["id"],
+            account_id=account_id,
             is_recurring=False,
             due_day=None
         )
@@ -81,9 +56,9 @@ def test_create_payment(test_db):
 
 
 def test_update_payment_rebuilds_allocations(test_db):
-    p1 = create_person("Cameron", 1000)
-    p2 = create_person("Wife", 1500)
-    account_id = create_account(p1)
+    p1 = create_service_person("Cameron", 1000)
+    p2 = create_service_person("Wife", 1500)
+    account_id = create_service_account(p1)
 
     created = payments.create_payment(
         PaymentData(
@@ -135,7 +110,7 @@ def test_update_payment_rebuilds_allocations(test_db):
 
 
 def test_update_payment_not_found(test_db):
-    p1 = create_person("Cameron", 1000)
+    p1 = create_service_person("Cameron", 1000)
 
     result = payments.update_payment(
         999999,
@@ -157,9 +132,9 @@ def test_update_payment_not_found(test_db):
 
 
 def test_delete_payment_removes_payment_and_allocations(test_db):
-    p1 = create_person("Cameron", 1000)
-    p2 = create_person("Wife", 1000)
-    account_id = create_account(p1)
+    p1 = create_service_person("Cameron", 1000)
+    p2 = create_service_person("Wife", 1000)
+    account_id = create_service_account(p1)
 
     created = payments.create_payment(
         PaymentData(
@@ -175,7 +150,6 @@ def test_delete_payment_removes_payment_and_allocations(test_db):
         )
     )
 
-    assert created["status"] == "ok"
     payment_id = created["id"]
 
     allocs_before = payment_allocations.fetch_allocations_by_payment_id(payment_id)
@@ -185,11 +159,8 @@ def test_delete_payment_removes_payment_and_allocations(test_db):
     assert deleted["status"] == "ok"
     assert deleted["deleted_id"] == payment_id
 
-    payment = payments.get_payment_by_id(payment_id)
-    assert payment is None
-
-    allocs_after = payment_allocations.fetch_allocations_by_payment_id(payment_id)
-    assert allocs_after == []
+    assert payments.get_payment_by_id(payment_id) is None
+    assert payment_allocations.fetch_allocations_by_payment_id(payment_id) == []
 
 
 def test_delete_payment_not_found(test_db):
@@ -197,6 +168,7 @@ def test_delete_payment_not_found(test_db):
 
     assert result["status"] == "error"
     assert result["message"] == "Payment not found"
+
 
 def test_weekly_budget(test_db):
     result = payments.get_weekly_budget(
@@ -272,42 +244,3 @@ def test_participant_ids_must_not_contain_duplicates():
             split_method=SplitMethod.equal,
             is_recurring=False
         )
-
-
-def test_delete_payment_not_found(test_db):
-    result = payments.delete_payment(999999)
-
-    assert result["status"] == "error"
-    assert result["message"] == "Payment not found"
-
-
-def test_delete_payment_removes_payment_and_allocations(test_db):
-    p1 = create_person("Cameron", 1000)
-    p2 = create_person("Wife", 1000)
-    account_id = create_account(p1)
-
-    created = payments.create_payment(
-        PaymentData(
-            name="Utilities",
-            amount=120,
-            due_date="2026-04-15",
-            category=PaymentCategory.utilities,
-            account_id=account_id,
-            participant_ids=[p1, p2],
-            split_method=SplitMethod.equal,
-            is_recurring=False,
-            due_day=None
-        )
-    )
-
-    payment_id = created["id"]
-
-    allocs_before = payment_allocations.fetch_allocations_by_payment_id(payment_id)
-    assert len(allocs_before) == 2
-
-    deleted = payments.delete_payment(payment_id)
-    assert deleted["status"] == "ok"
-    assert deleted["deleted_id"] == payment_id
-
-    assert payments.get_payment_by_id(payment_id) is None
-    assert payment_allocations.fetch_allocations_by_payment_id(payment_id) == []

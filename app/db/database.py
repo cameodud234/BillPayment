@@ -18,7 +18,7 @@ def init_db():
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS people (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL,
+        name TEXT UNIQUE NOT NULL,
         payday TEXT,
         pay_schedule TEXT,
         anchor_date TEXT,

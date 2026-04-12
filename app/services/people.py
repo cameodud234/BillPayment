@@ -1,3 +1,5 @@
+import sqlite3
+
 from app.db.database import get_connection
 from app.domain.person import PersonData
 
@@ -37,29 +39,46 @@ def get_person_by_id(person_id: int):
     return dict(row)
 
 
-def create_person(data: PersonData):
+
+def create_person(data):
     conn = get_connection()
     cursor = conn.cursor()
 
-    cursor.execute("""
-        INSERT INTO people (name, pay_schedule, payday, anchor_date, average_income)
-        VALUES (?, ?, ?, ?, ?)
-    """, (
-        data.name,
-        data.pay_schedule,
-        data.payday,
-        data.anchor_date,
-        data.average_income
-    ))
+    try:
+        cursor.execute("""
+            INSERT INTO people (
+                name,
+                pay_schedule,
+                payday,
+                anchor_date,
+                average_income
+            )
+            VALUES (?, ?, ?, ?, ?)
+        """, (
+            data.name,
+            data.pay_schedule,
+            data.payday,
+            data.anchor_date,
+            data.average_income
+        ))
 
-    conn.commit()
-    person_id = cursor.lastrowid
-    conn.close()
+        conn.commit()
+        person_id = cursor.lastrowid
 
-    return {
-        "status": "ok",
-        "id": person_id
-    }
+        return {
+            "status": "ok",
+            "id": person_id
+        }
+
+    except sqlite3.IntegrityError:
+        conn.rollback()
+        return {
+            "status": "error",
+            "message": "Person with this name already exists"
+        }
+
+    finally:
+        conn.close()
 
 
 def update_person(person_id: int, data: PersonData):

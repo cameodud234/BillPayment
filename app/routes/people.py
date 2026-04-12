@@ -26,6 +26,7 @@ def get_person(person_id: int):
 
 @router.post("/people")
 def add_person(data: person_models.AddPersonRequest):
+
     if data.pay_schedule not in VALID_SCHEDULES:
         raise HTTPException(
             status_code=400,
@@ -49,7 +50,12 @@ def add_person(data: person_models.AddPersonRequest):
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-    return people.create_person(person)
+    result = people.create_person(person)
+
+    if result["status"] == "error":
+        raise HTTPException(status_code=400, detail=result["message"])
+
+    return result
 
 
 @router.put("/people/{person_id}")
