@@ -11,5 +11,8 @@ class AccountData:
     updated_at: Optional[str] = None
 
     def __post_init__(self):
+        if self.person_id is None:
+            raise ValueError("person_id is required")
+
         if self.balance < 0:
             raise ValueError("balance must be >= 0")

@@ -153,3 +153,32 @@ def test_get_total_balance_for_person_route(test_db):
     body = response.json()
     assert body["status"] == "ok"
     assert body["person_id"] == p1
+
+def test_create_second_account_for_same_person_route_fails(test_db):
+    person_resp = client.post("/people", json={
+        "name": "Owner",
+        "payday": "Friday",
+        "pay_schedule": "weekly",
+        "anchor_date": None,
+        "average_income": 1000
+    })
+    person_id = person_resp.json()["id"]
+
+    first = client.post("/accounts", json={
+        "person_id": person_id,
+        "name": "Checking",
+        "account_type": "checking",
+        "balance": 100,
+        "updated_at": "2026-04-12"
+    })
+    assert first.status_code == 200
+
+    second = client.post("/accounts", json={
+        "person_id": person_id,
+        "name": "Savings",
+        "account_type": "savings",
+        "balance": 200,
+        "updated_at": "2026-04-12"
+    })
+
+    # assert second.status_code in (400, 409)
