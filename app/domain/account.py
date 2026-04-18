@@ -4,7 +4,7 @@ from app.models.account_models import AccountType
 
 @dataclass
 class AccountData:
-    person_id: Optional[int]
+    person_id: int
     name: str
     account_type: AccountType
     balance: float = 0.0

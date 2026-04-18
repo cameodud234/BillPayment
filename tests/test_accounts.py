@@ -110,3 +110,40 @@ def test_delete_missing_account_returns_error(test_db):
 
     assert result["status"] == "error"
     assert result["message"] == "Account not found"
+
+def test_get_total_balance_by_person_id(test_db):
+    p1 = people.create_person(
+        PersonData(
+            name="Cameron",
+            payday="Friday",
+            pay_schedule="weekly",
+            anchor_date=None,
+            average_income=1000
+        )
+    )["id"]
+
+    accounts.create_account(
+        AccountData(
+            person_id=p1,
+            name="Checking",
+            account_type=AccountType.checking,
+            balance=1000,
+            updated_at="2026-04-12"
+        )
+    )
+
+    accounts.create_account(
+        AccountData(
+            person_id=p1,
+            name="Savings",
+            account_type=AccountType.savings,
+            balance=2500,
+            updated_at="2026-04-12"
+        )
+    )
+
+    result = accounts.get_total_balance_by_person_id(p1)
+
+    assert result["status"] == "ok"
+    assert result["person_id"] == p1
+    assert result["total_balance"] == 3500

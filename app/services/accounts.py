@@ -25,6 +25,85 @@ def get_all_accounts():
     finally:
         conn.close()
 
+def get_accounts_by_person_id(person_id: int):
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    try:
+
+        cursor.execute("""
+            SELECT id FROM people WHERE id = ?
+        """, (person_id,))
+        person = cursor.fetchone()
+
+        if person is None:
+            return {
+                "status": "error",
+                "message": "Person not found"
+            }
+
+        cursor.execute("""
+            SELECT id, person_id, name, account_type, balance, updated_at
+            FROM accounts
+            WHERE person_id = ?
+            ORDER BY name
+        """, (person_id,))
+
+        rows = cursor.fetchall()
+
+        return {
+            "status": "ok",
+            "accounts": [dict(row) for row in rows]
+        }
+
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": f"Failed to fetch accounts: {str(e)}"
+        }
+
+    finally:
+        conn.close()
+
+def get_total_balance_by_person_id(person_id: int):
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    try:
+        cursor.execute("""
+            SELECT id
+            FROM people
+            WHERE id = ?
+        """, (person_id,))
+        person = cursor.fetchone()
+
+        if person is None:
+            return {
+                "status": "error",
+                "message": "Person not found"
+            }
+
+        cursor.execute("""
+            SELECT COALESCE(SUM(balance), 0) AS total_balance
+            FROM accounts
+            WHERE person_id = ?
+        """, (person_id,))
+        row = cursor.fetchone()
+
+        return {
+            "status": "ok",
+            "person_id": person_id,
+            "total_balance": row["total_balance"]
+        }
+
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": f"Failed to fetch total balance for person: {str(e)}"
+        }
+
+    finally:
+        conn.close()
 
 def get_total_balance():
     conn = get_connection()
@@ -48,11 +127,27 @@ def get_total_balance():
         conn.close()
 
 
+import sqlite3
+from app.db.database import get_connection
+from app.domain.account import AccountData
+
+
 def create_account(data: AccountData):
     conn = get_connection()
     cursor = conn.cursor()
 
     try:
+        cursor.execute("""
+            SELECT id FROM accounts WHERE person_id = ?
+        """, (data.person_id,))
+        existing = cursor.fetchone()
+
+        if existing is not None:
+            return {
+                "status": "error",
+                "message": "This person already has an account"
+            }
+
         cursor.execute("""
             INSERT INTO accounts (person_id, name, account_type, balance, updated_at)
             VALUES (?, ?, ?, ?, ?)
@@ -71,11 +166,11 @@ def create_account(data: AccountData):
             "id": cursor.lastrowid
         }
 
-    except sqlite3.IntegrityError as e:
+    except sqlite3.IntegrityError:
         conn.rollback()
         return {
             "status": "error",
-            "message": f"Integrity error: {str(e)}"
+            "message": "This person already has an account"
         }
 
     except Exception as e:

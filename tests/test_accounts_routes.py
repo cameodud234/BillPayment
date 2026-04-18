@@ -4,6 +4,38 @@ from main import app
 client = TestClient(app)
 
 
+def create_person(name: str, average_income: float | None = 1200):
+    person_payload = {
+        "name": name,
+        "payday": "Friday",
+        "pay_schedule": "weekly",
+        "anchor_date": None,
+        "average_income": average_income
+    }
+    response = client.post("/people", json=person_payload)
+    assert response.status_code == 200
+    return response.json()["id"]
+
+
+def create_account(
+    person_id: int,
+    name: str = "Bills Checking",
+    account_type: str = "checking",
+    balance: float = 2500,
+    updated_at: str = "2026-04-10"
+):
+    account_payload = {
+        "person_id": person_id,
+        "name": name,
+        "account_type": account_type,
+        "balance": balance,
+        "updated_at": updated_at
+    }
+    response = client.post("/accounts", json=account_payload)
+    assert response.status_code == 200
+    return response.json()["id"]
+
+
 def test_get_accounts_route():
     response = client.get("/accounts")
     assert response.status_code == 200
@@ -103,3 +135,21 @@ def test_delete_account_route():
     body = response.json()
     assert body["status"] == "ok"
     assert body["deleted_id"] == account_id
+
+def test_get_total_balance_for_person_route(test_db):
+    p1 = create_person("Cameron", 1000)
+    create_account(p1)
+    client.post("/accounts", json={
+        "person_id": p1,
+        "name": "Savings",
+        "account_type": "savings",
+        "balance": 2000,
+        "updated_at": "2026-04-12"
+    })
+
+    response = client.get(f"/people/{p1}/accounts/total")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "ok"
+    assert body["person_id"] == p1

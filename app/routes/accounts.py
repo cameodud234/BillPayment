@@ -20,12 +20,31 @@ def get_account(account_id: int):
 
     return account
 
+@router.get("/people/{person_id}/accounts")
+def get_accounts_for_person(person_id: int):
+
+    result = accounts.get_accounts_by_person_id(person_id)
+
+    if result["status"] == "error":
+        raise HTTPException(status_code=400, detail=result["message"])
+
+    return result
+
+@router.get("/people/{person_id}/accounts/total")
+def get_total_balance_for_person(person_id: int):
+    result = accounts.get_total_balance_by_person_id(person_id)
+
+    if result["status"] == "error":
+        if result["message"] == "Person not found":
+            raise HTTPException(status_code=404, detail=result["message"])
+        raise HTTPException(status_code=400, detail=result["message"])
+
+    return result
 
 @router.post("/accounts")
 def add_account(data: account_models.AddAccountRequest):
     account = AccountData(**data.model_dump())
     return accounts.create_account(account)
-
 
 @router.put("/accounts/{account_id}")
 def update_account(account_id: int, data: account_models.UpdateAccountRequest):
