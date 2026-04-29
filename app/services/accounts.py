@@ -1,6 +1,7 @@
 import sqlite3
 from app.db.database import get_connection
 from app.domain.account import AccountData
+from app.errors import PERSON_ACCOUNT_EXISTS
 
 
 def get_all_accounts():
@@ -145,7 +146,11 @@ def create_account(data: AccountData):
         if existing is not None:
             return {
                 "status": "error",
-                "message": "This person already has an account"
+                "error": {
+                    "code": PERSON_ACCOUNT_EXISTS.code,
+                    "message": PERSON_ACCOUNT_EXISTS.message,
+                    "status_code": PERSON_ACCOUNT_EXISTS.status_code,
+                }
             }
 
         cursor.execute("""
@@ -160,24 +165,17 @@ def create_account(data: AccountData):
         ))
 
         conn.commit()
-
-        return {
-            "status": "ok",
-            "id": cursor.lastrowid
-        }
-
-    except sqlite3.IntegrityError:
-        conn.rollback()
-        return {
-            "status": "error",
-            "message": "This person already has an account"
-        }
+        return {"status": "ok", "id": cursor.lastrowid}
 
     except Exception as e:
         conn.rollback()
         return {
             "status": "error",
-            "message": f"Failed to create account: {str(e)}"
+            "error": {
+                "code": "ACCOUNT_CREATE_FAILED",
+                "message": f"Failed to create account: {str(e)}",
+                "status_code": 500,
+            }
         }
 
     finally:
