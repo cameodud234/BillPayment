@@ -1,7 +1,8 @@
 import sqlite3
+
 from app.db.database import get_connection
 from app.domain.account import AccountData
-from app.errors import PERSON_ACCOUNT_EXISTS
+from app import errors
 
 
 def get_all_accounts():
@@ -18,30 +19,55 @@ def get_all_accounts():
         return [dict(row) for row in rows]
 
     except Exception as e:
-        return {
-            "status": "error",
-            "message": f"Failed to fetch accounts: {str(e)}"
-        }
+        return errors.error_response(
+            errors.DATABASE_ERROR,
+            f"Failed to fetch accounts: {str(e)}"
+        )
 
     finally:
         conn.close()
+
+
+def get_account_by_id(account_id: int):
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    try:
+        cursor.execute("""
+            SELECT id, person_id, name, account_type, balance, updated_at
+            FROM accounts
+            WHERE id = ?
+        """, (account_id,))
+
+        row = cursor.fetchone()
+
+        if row is None:
+            return None
+
+        return dict(row)
+
+    except Exception as e:
+        return errors.error_response(
+            errors.DATABASE_ERROR,
+            f"Failed to fetch account: {str(e)}"
+        )
+
+    finally:
+        conn.close()
+
 
 def get_accounts_by_person_id(person_id: int):
     conn = get_connection()
     cursor = conn.cursor()
 
     try:
-
         cursor.execute("""
             SELECT id FROM people WHERE id = ?
         """, (person_id,))
         person = cursor.fetchone()
 
         if person is None:
-            return {
-                "status": "error",
-                "message": "Person not found"
-            }
+            return errors.error_response(errors.PERSON_NOT_FOUND)
 
         cursor.execute("""
             SELECT id, person_id, name, account_type, balance, updated_at
@@ -58,13 +84,14 @@ def get_accounts_by_person_id(person_id: int):
         }
 
     except Exception as e:
-        return {
-            "status": "error",
-            "message": f"Failed to fetch accounts: {str(e)}"
-        }
+        return errors.error_response(
+            errors.DATABASE_ERROR,
+            f"Failed to fetch accounts for person: {str(e)}"
+        )
 
     finally:
         conn.close()
+
 
 def get_total_balance_by_person_id(person_id: int):
     conn = get_connection()
@@ -72,23 +99,19 @@ def get_total_balance_by_person_id(person_id: int):
 
     try:
         cursor.execute("""
-            SELECT id
-            FROM people
-            WHERE id = ?
+            SELECT id FROM people WHERE id = ?
         """, (person_id,))
         person = cursor.fetchone()
 
         if person is None:
-            return {
-                "status": "error",
-                "message": "Person not found"
-            }
+            return errors.error_response(errors.PERSON_NOT_FOUND)
 
         cursor.execute("""
             SELECT COALESCE(SUM(balance), 0) AS total_balance
             FROM accounts
             WHERE person_id = ?
         """, (person_id,))
+
         row = cursor.fetchone()
 
         return {
@@ -98,13 +121,14 @@ def get_total_balance_by_person_id(person_id: int):
         }
 
     except Exception as e:
-        return {
-            "status": "error",
-            "message": f"Failed to fetch total balance for person: {str(e)}"
-        }
+        return errors.error_response(
+            errors.DATABASE_ERROR,
+            f"Failed to fetch total balance for person: {str(e)}"
+        )
 
     finally:
         conn.close()
+
 
 def get_total_balance():
     conn = get_connection()
@@ -115,22 +139,18 @@ def get_total_balance():
             SELECT COALESCE(SUM(balance), 0) AS total_balance
             FROM accounts
         """)
+
         row = cursor.fetchone()
         return row["total_balance"]
 
     except Exception as e:
-        return {
-            "status": "error",
-            "message": f"Failed to calculate total balance: {str(e)}"
-        }
+        return errors.error_response(
+            errors.DATABASE_ERROR,
+            f"Failed to calculate total balance: {str(e)}"
+        )
 
     finally:
         conn.close()
-
-
-import sqlite3
-from app.db.database import get_connection
-from app.domain.account import AccountData
 
 
 def create_account(data: AccountData):
@@ -139,22 +159,29 @@ def create_account(data: AccountData):
 
     try:
         cursor.execute("""
+            SELECT id FROM people WHERE id = ?
+        """, (data.person_id,))
+        person = cursor.fetchone()
+
+        if person is None:
+            return errors.error_response(errors.PERSON_NOT_FOUND)
+
+        cursor.execute("""
             SELECT id FROM accounts WHERE person_id = ?
         """, (data.person_id,))
         existing = cursor.fetchone()
 
         if existing is not None:
-            return {
-                "status": "error",
-                "error": {
-                    "code": PERSON_ACCOUNT_EXISTS.code,
-                    "message": PERSON_ACCOUNT_EXISTS.message,
-                    "status_code": PERSON_ACCOUNT_EXISTS.status_code,
-                }
-            }
+            return errors.error_response(errors.PERSON_ACCOUNT_EXISTS)
 
         cursor.execute("""
-            INSERT INTO accounts (person_id, name, account_type, balance, updated_at)
+            INSERT INTO accounts (
+                person_id,
+                name,
+                account_type,
+                balance,
+                updated_at
+            )
             VALUES (?, ?, ?, ?, ?)
         """, (
             data.person_id,
@@ -165,18 +192,22 @@ def create_account(data: AccountData):
         ))
 
         conn.commit()
-        return {"status": "ok", "id": cursor.lastrowid}
+
+        return {
+            "status": "ok",
+            "id": cursor.lastrowid
+        }
+
+    except sqlite3.IntegrityError:
+        conn.rollback()
+        return errors.error_response(errors.PERSON_ACCOUNT_EXISTS)
 
     except Exception as e:
         conn.rollback()
-        return {
-            "status": "error",
-            "error": {
-                "code": "ACCOUNT_CREATE_FAILED",
-                "message": f"Failed to create account: {str(e)}",
-                "status_code": 500,
-            }
-        }
+        return errors.error_response(
+            errors.DATABASE_ERROR,
+            f"Failed to create account: {str(e)}"
+        )
 
     finally:
         conn.close()
@@ -190,14 +221,37 @@ def update_account(account_id: int, data: AccountData):
         cursor.execute("""
             SELECT id FROM accounts WHERE id = ?
         """, (account_id,))
-        row = cursor.fetchone()
+        account = cursor.fetchone()
 
-        if row is None:
-            return {"status": "error", "message": "Account not found"}
+        if account is None:
+            return errors.error_response(errors.ACCOUNT_NOT_FOUND)
+
+        cursor.execute("""
+            SELECT id FROM people WHERE id = ?
+        """, (data.person_id,))
+        person = cursor.fetchone()
+
+        if person is None:
+            return errors.error_response(errors.PERSON_NOT_FOUND)
+
+        cursor.execute("""
+            SELECT id
+            FROM accounts
+            WHERE person_id = ?
+            AND id != ?
+        """, (data.person_id, account_id))
+        existing = cursor.fetchone()
+
+        if existing is not None:
+            return errors.error_response(errors.PERSON_ACCOUNT_EXISTS)
 
         cursor.execute("""
             UPDATE accounts
-            SET person_id = ?, name = ?, account_type = ?, balance = ?, updated_at = ?
+            SET person_id = ?,
+                name = ?,
+                account_type = ?,
+                balance = ?,
+                updated_at = ?
             WHERE id = ?
         """, (
             data.person_id,
@@ -215,19 +269,16 @@ def update_account(account_id: int, data: AccountData):
             "updated_id": account_id
         }
 
-    except sqlite3.IntegrityError as e:
+    except sqlite3.IntegrityError:
         conn.rollback()
-        return {
-            "status": "error",
-            "message": f"Integrity error: {str(e)}"
-        }
+        return errors.error_response(errors.PERSON_ACCOUNT_EXISTS)
 
     except Exception as e:
         conn.rollback()
-        return {
-            "status": "error",
-            "message": f"Failed to update account: {str(e)}"
-        }
+        return errors.error_response(
+            errors.DATABASE_ERROR,
+            f"Failed to update account: {str(e)}"
+        )
 
     finally:
         conn.close()
@@ -241,13 +292,14 @@ def delete_account(account_id: int):
         cursor.execute("""
             SELECT id FROM accounts WHERE id = ?
         """, (account_id,))
-        row = cursor.fetchone()
+        account = cursor.fetchone()
 
-        if row is None:
-            return {"status": "error", "message": "Account not found"}
+        if account is None:
+            return errors.error_response(errors.ACCOUNT_NOT_FOUND)
 
         cursor.execute("""
-            DELETE FROM accounts WHERE id = ?
+            DELETE FROM accounts
+            WHERE id = ?
         """, (account_id,))
 
         conn.commit()
@@ -259,10 +311,10 @@ def delete_account(account_id: int):
 
     except Exception as e:
         conn.rollback()
-        return {
-            "status": "error",
-            "message": f"Failed to delete account: {str(e)}"
-        }
+        return errors.error_response(
+            errors.DATABASE_ERROR,
+            f"Failed to delete account: {str(e)}"
+        )
 
     finally:
         conn.close()

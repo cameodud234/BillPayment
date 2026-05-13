@@ -1,14 +1,15 @@
 from datetime import datetime, timedelta, date
 from app.services import payments, accounts
 from app.config import BIWEEKLY_PAYDAY_ANCHOR
+from app import errors
 
 
 def get_next_friday(today: date) -> date:
+    if not isinstance(today, date):
+        raise ValueError(f"{today} of type {type(today)} must be date type.")
     days_ahead = 4 - today.weekday()
     if days_ahead < 0:
         days_ahead += 7
-    return today + timedelta(days=days_ahead)
-
 
 def is_wife_payday(check_date: date) -> bool:
     return (check_date - BIWEEKLY_PAYDAY_ANCHOR).days % 14 == 0
@@ -47,11 +48,11 @@ def get_next_payday_summary(today_str: str | None = None):
             "payments": due_items
         }
 
-    except ValueError:
-        return {
-            "status": "error",
-            "message": "today must be YYYY-MM-DD"
-        }
+    except ValueError as e:
+        return errors.error_response(
+            errors.INVALID_DATE_FORMAT,
+            str(e)
+        )
 
     except Exception as e:
         return {
