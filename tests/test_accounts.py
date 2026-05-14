@@ -98,6 +98,33 @@ def test_delete_account(test_db):
     assert result["status"] == "ok"
 
 
+def test_deleting_person_deletes_their_account(test_db):
+    person = people.create_person(
+        PersonData(
+            name="Cascade Owner",
+            payday="Friday",
+            pay_schedule="weekly",
+            anchor_date=None,
+            average_income=1000
+        )
+    )
+
+    created = accounts.create_account(
+        AccountData(
+            person_id=person["id"],
+            name="Cascade Checking",
+            account_type=AccountType.checking,
+            balance=200,
+            updated_at="2026-04-09"
+        )
+    )
+
+    result = people.delete_person(person["id"])
+
+    assert result["status"] == "ok"
+    assert accounts.get_account_by_id(created["id"]) is None
+
+
 def test_account_balance_cannot_be_negative():
     with pytest.raises(ValueError, match="balance must be >= 0"):
         AccountData(

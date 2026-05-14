@@ -37,7 +37,7 @@ def init_db():
         balance REAL DEFAULT 0,
         updated_at TEXT,
         created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY(person_id) REFERENCES people(id) ON DELETE SET NULL
+        FOREIGN KEY(person_id) REFERENCES people(id) ON DELETE CASCADE
     )
     """)
 
