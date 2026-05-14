@@ -45,6 +45,12 @@ PAYMENT_NOT_FOUND = AppError(
     status_code=404,
 )
 
+PAYMENTS_NOT_FOUND = AppError(
+    code="PAYMENT_NOT_FOUND",
+    message="Payments not found",
+    status_code=404,
+)
+
 PERSON_ACCOUNT_EXISTS = AppError(
     code="PERSON_ACCOUNT_EXISTS",
     message="This person already has an account",

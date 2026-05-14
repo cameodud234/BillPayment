@@ -2,6 +2,7 @@ from datetime import datetime, timedelta
 from app.db.database import get_connection
 from app.domain.payment import PaymentData, WeeklyBudgetData
 from app.services import payment_allocations
+from app import errors
 
 
 def get_all_payments():
@@ -29,10 +30,10 @@ def get_all_payments():
         return [dict(row) for row in rows]
 
     except Exception as e:
-        return {
-            "status": "error",
-            "message": f"Failed to fetch payments: {str(e)}"
-        }
+        return errors.error_response(
+            errors.DATABASE_ERROR,
+            f"Failed to fetch payments: {str(e)}"
+        )
 
     finally:
         conn.close()
@@ -67,10 +68,10 @@ def get_payment_by_id(payment_id: int):
         return dict(row)
 
     except Exception as e:
-        return {
-            "status": "error",
-            "message": f"Failed to fetch payment: {str(e)}"
-        }
+        return errors.error_response(
+            errors.DATABASE_ERROR,
+            f"Failed to get payment by ID: {str(e)}"
+        )
 
     finally:
         conn.close()
@@ -102,10 +103,10 @@ def get_payments_due_between(start_date, end_date):
         return [dict(row) for row in rows]
 
     except Exception as e:
-        return {
-            "status": "error",
-            "message": f"Failed to fetch payments in range: {str(e)}"
-        }
+        return errors.error_response(
+            errors.DATABASE_ERROR,
+            f"Failed to fetch payments in range: {str(e)}"
+        )
 
     finally:
         conn.close()
@@ -153,17 +154,17 @@ def create_payment(data: PaymentData):
 
     except ValueError as e:
         conn.rollback()
-        return {
-            "status": "error",
-            "message": str(e)
-        }
+        return errors.error_response(
+            errors.VALIDATION_ERROR,
+            str(e)
+        )
 
     except Exception as e:
         conn.rollback()
-        return {
-            "status": "error",
-            "message": f"Failed to create payment: {str(e)}"
-        }
+        return errors.error_response(
+            errors.DATABASE_ERROR,
+            f"Failed to create payment: {str(e)}"
+        )
 
     finally:
         conn.close()
@@ -225,18 +226,18 @@ def update_payment(payment_id: int, data: PaymentData):
 
     except ValueError as e:
         conn.rollback()
-        return {
-            "status": "error",
-            "message": str(e)
-        }
+        return errors.error_response(
+            errors.VALIDATION_ERROR,
+            str(e)
+        )
 
     except Exception as e:
         conn.rollback()
-        return {
-            "status": "error",
-            "message": f"Failed to update payment: {str(e)}"
-        }
-
+        return errors.error_response(
+            errors.DATABASE_ERROR,
+            f"Failed to update payment: {str(e)}"
+        )
+    
     finally:
         conn.close()
 
@@ -273,10 +274,10 @@ def delete_payment(payment_id: int):
 
     except Exception as e:
         conn.rollback()
-        return {
-            "status": "error",
-            "message": f"Failed to delete payment: {str(e)}"
-        }
+        return errors.error_response(
+            errors.DATABASE_ERROR,
+            f"Failed to update payment: {str(e)}"
+        )
 
     finally:
         conn.close()
@@ -300,14 +301,14 @@ def get_weekly_budget(data: WeeklyBudgetData):
             "payments": filtered
         }
 
-    except ValueError:
-        return {
-            "status": "error",
-            "message": "payday must be YYYY-MM-DD"
-        }
+    except ValueError as e:
+        return errors.error_response(
+            errors.INVALID_DATE_FORMAT,
+            f"payday must be YYYY-MM-DD: {str(e)}"
+        )
 
     except Exception as e:
-        return {
-            "status": "error",
-            "message": f"Failed to calculate weekly budget: {str(e)}"
-        }
+        return errors.error_response(
+            errors.DATABASE_ERROR,
+            f"Failed to calculate weekly budget: {str(e)}"
+        )
