@@ -2,6 +2,7 @@ import sqlite3
 
 from app.db.database import get_connection
 from app.domain.person import PersonData
+from app import errors
 
 
 def get_all_people():
@@ -19,10 +20,10 @@ def get_all_people():
         return [dict(row) for row in rows]
 
     except Exception as e:
-        return {
-            "status": "error",
-            "message": f"Failed to fetch people: {str(e)}"
-        }
+        return errors.error_response(
+            errors.DATABASE_ERROR,
+            f"Failed to fetch people: {str(e)}"
+        )
 
     finally:
         conn.close()
@@ -47,10 +48,10 @@ def get_person_by_id(person_id: int):
         return dict(row)
 
     except Exception as e:
-        return {
-            "status": "error",
-            "message": f"Failed to fetch person: {str(e)}"
-        }
+        return errors.error_response(
+            errors.DATABASE_ERROR,
+            f"Failed to fetch person: {str(e)}"
+        )
 
     finally:
         conn.close()
@@ -87,17 +88,14 @@ def create_person(data: PersonData):
 
     except sqlite3.IntegrityError:
         conn.rollback()
-        return {
-            "status": "error",
-            "message": "Person with this name already exists"
-        }
+        return errors.error_response(errors.PERSON_ALREADY_EXISTS)
 
     except Exception as e:
         conn.rollback()
-        return {
-            "status": "error",
-            "message": f"Failed to create person: {str(e)}"
-        }
+        return errors.error_response(
+            errors.DATABASE_ERROR,
+            f"Failed to create person: {str(e)}"
+        )
 
     finally:
         conn.close()
@@ -114,7 +112,7 @@ def update_person(person_id: int, data: PersonData):
         row = cursor.fetchone()
 
         if row is None:
-            return {"status": "error", "message": "Person not found"}
+            return errors.error_response(errors.PERSON_NOT_FOUND)
 
         cursor.execute("""
             UPDATE people
@@ -138,17 +136,14 @@ def update_person(person_id: int, data: PersonData):
 
     except sqlite3.IntegrityError:
         conn.rollback()
-        return {
-            "status": "error",
-            "message": "Person with this name already exists"
-        }
+        return errors.error_response(errors.PERSON_ALREADY_EXISTS)
 
     except Exception as e:
         conn.rollback()
-        return {
-            "status": "error",
-            "message": f"Failed to update person: {str(e)}"
-        }
+        return errors.error_response(
+            errors.DATABASE_ERROR,
+            f"Failed to update person: {str(e)}"
+        )
 
     finally:
         conn.close()
@@ -165,7 +160,7 @@ def delete_person(person_id: int):
         row = cursor.fetchone()
 
         if row is None:
-            return {"status": "error", "message": "Person not found"}
+            return errors.error_response(errors.PERSON_NOT_FOUND)
 
         cursor.execute("""
             DELETE FROM people WHERE id = ?
@@ -180,10 +175,10 @@ def delete_person(person_id: int):
 
     except Exception as e:
         conn.rollback()
-        return {
-            "status": "error",
-            "message": f"Failed to delete person: {str(e)}"
-        }
+        return errors.error_response(
+            errors.DATABASE_ERROR,
+            f"Failed to delete person: {str(e)}"
+        )
 
     finally:
         conn.close()
