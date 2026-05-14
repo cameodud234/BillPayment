@@ -1,7 +1,7 @@
-import sqlite3
 from app.db.database import get_connection
 from app.domain.payment import PaymentData
 from app.models.payment_models import SplitMethod
+from app import errors
 
 
 def get_allocations_by_payment_id(cursor, payment_id: int):
@@ -29,10 +29,10 @@ def fetch_allocations_by_payment_id(payment_id: int):
         return get_allocations_by_payment_id(cursor, payment_id)
 
     except Exception as e:
-        return {
-            "status": "error",
-            "message": f"Failed to fetch allocations: {str(e)}"
-        }
+        return errors.error_response(
+            errors.DATABASE_ERROR,
+            f"Failed to fetch allocations: {str(e)}"
+        )
 
     finally:
         conn.close()
@@ -51,10 +51,7 @@ def get_payment_allocations(payment_id: int):
         payment = cursor.fetchone()
 
         if payment is None:
-            return {
-                "status": "error",
-                "message": "Payment not found"
-            }
+            return errors.error_response(errors.PAYMENT_NOT_FOUND)
 
         allocations = get_allocations_by_payment_id(cursor, payment_id)
 
@@ -65,33 +62,21 @@ def get_payment_allocations(payment_id: int):
         }
 
     except Exception as e:
-        return {
-            "status": "error",
-            "message": f"Failed to get payment allocations: {str(e)}"
-        }
+        return errors.error_response(
+            errors.DATABASE_ERROR,
+            f"Failed to get payment allocations: {str(e)}"
+        )
 
     finally:
         conn.close()
 
 
 def map_allocations_by_person_id(allocations: list[dict]):
-    try:
-        return {row["person_id"]: row for row in allocations}
-    except Exception as e:
-        return {
-            "status": "error",
-            "message": f"Failed to map allocations: {str(e)}"
-        }
+    return {row["person_id"]: row for row in allocations}
 
 
 def sum_allocated_amounts(allocations: list[dict]) -> float:
-    try:
-        return round(sum(row["allocated_amount"] for row in allocations), 2)
-    except Exception as e:
-        return {
-            "status": "error",
-            "message": f"Failed to sum allocated amounts: {str(e)}"
-        }
+    return round(sum(row["allocated_amount"] for row in allocations), 2)
 
 
 def count_allocations_for_payment(payment_id: int):
@@ -108,10 +93,10 @@ def count_allocations_for_payment(payment_id: int):
         return row["count"]
 
     except Exception as e:
-        return {
-            "status": "error",
-            "message": f"Failed to count allocations: {str(e)}"
-        }
+        return errors.error_response(
+            errors.DATABASE_ERROR,
+            f"Failed to count allocations: {str(e)}"
+        )
 
     finally:
         conn.close()
@@ -123,17 +108,18 @@ def delete_allocations_for_payment(cursor, payment_id: int):
             DELETE FROM payment_allocations
             WHERE payment_id = ?
         """, (payment_id,))
+
     except Exception as e:
         raise ValueError(f"Failed to delete allocations for payment {payment_id}: {str(e)}")
 
 
 def _fetch_participants(cursor, participant_ids: list[int]):
+    if not participant_ids:
+        raise ValueError(errors.PARTICIPANTS_REQUIRED.message)
+
+    placeholders = ",".join(["?"] * len(participant_ids))
+
     try:
-        if not participant_ids:
-            raise ValueError("participant_ids must not be empty")
-
-        placeholders = ",".join(["?"] * len(participant_ids))
-
         cursor.execute(f"""
             SELECT id, name, average_income
             FROM people
@@ -143,44 +129,35 @@ def _fetch_participants(cursor, participant_ids: list[int]):
 
         people = cursor.fetchall()
 
-        if len(people) != len(set(participant_ids)):
-            raise ValueError("One or more participant_ids do not exist.")
-
-        return people
-
     except Exception as e:
-        if isinstance(e, ValueError):
-            raise
         raise ValueError(f"Failed to fetch participants: {str(e)}")
+
+    if len(people) != len(set(participant_ids)):
+        raise ValueError(errors.PARTICIPANTS_NOT_FOUND.message)
+
+    return people
 
 
 def validate_split_method_requirements(cursor, data: PaymentData):
-    try:
-        people = _fetch_participants(cursor, data.participant_ids)
+    people = _fetch_participants(cursor, data.participant_ids)
 
-        if data.split_method == SplitMethod.income_ratio:
-            missing_income = [
-                person["name"]
-                for person in people
-                if person["average_income"] is None
-            ]
+    if data.split_method == SplitMethod.income_ratio:
+        missing_income = [
+            person["name"]
+            for person in people
+            if person["average_income"] is None
+        ]
 
-            if missing_income:
-                names = ", ".join(missing_income)
-                raise ValueError(
-                    f"Cannot use income_ratio split: missing average_income for {names}."
-                )
+        if missing_income:
+            names = ", ".join(missing_income)
+            raise ValueError(
+                f"Cannot use income_ratio split: missing average_income for {names}."
+            )
 
-            total_income = sum(person["average_income"] for person in people)
-            if total_income <= 0:
-                raise ValueError(
-                    "Cannot use income_ratio split: total average_income must be greater than 0."
-                )
+        total_income = sum(person["average_income"] for person in people)
 
-    except Exception as e:
-        if isinstance(e, ValueError):
-            raise
-        raise ValueError(f"Failed to validate split method requirements: {str(e)}")
+        if total_income <= 0:
+            raise ValueError(errors.INVALID_INCOME_TOTAL.message)
 
 
 def create_payment_allocations(cursor, payment_id: int, data: PaymentData):
@@ -242,7 +219,8 @@ def create_payment_allocations(cursor, payment_id: int, data: PaymentData):
         else:
             raise ValueError(f"Unsupported split_method: {data.split_method}")
 
+    except ValueError:
+        raise
+
     except Exception as e:
-        if isinstance(e, ValueError):
-            raise
         raise ValueError(f"Failed to create payment allocations: {str(e)}")

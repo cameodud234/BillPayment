@@ -74,3 +74,33 @@ INVALID_DATE_FORMAT = AppError(
     message="Date must be YYYY-MM-DD",
     status_code=400,
 )
+
+PARTICIPANTS_REQUIRED = AppError(
+    code="PARTICIPANTS_REQUIRED",
+    message="participant_ids must not be empty",
+    status_code=400,
+)
+
+PARTICIPANTS_NOT_FOUND = AppError(
+    code="PARTICIPANTS_NOT_FOUND",
+    message="One or more participant_ids do not exist",
+    status_code=400,
+)
+
+MISSING_INCOME = AppError(
+    code="MISSING_INCOME",
+    message="Missing income for income_ratio split",
+    status_code=400,
+)
+
+INVALID_INCOME_TOTAL = AppError(
+    code="INVALID_INCOME_TOTAL",
+    message="Total average_income must be greater than 0",
+    status_code=400,
+)
+
+ALLOCATION_ERROR = AppError(
+    code="ALLOCATION_ERROR",
+    message="Payment allocation error",
+    status_code=400,
+)
