@@ -5,6 +5,7 @@ from app.domain.payment import PaymentData
 from app.db.database import get_connection
 from app.models.account_models import AccountType
 from app.models.payment_models import PaymentCategory, SplitMethod
+from helpers import assert_service_error
 
 
 def create_person(name: str, income: float | None):
@@ -232,5 +233,4 @@ def test_get_payment_allocations_service_returns_allocations(test_db):
 def test_get_payment_allocations_service_not_found(test_db):
     result = payment_allocations.get_payment_allocations(999999)
 
-    assert result["status"] == "error"
-    assert result["message"] == "Payment not found"
+    assert_service_error(result, "PAYMENT_NOT_FOUND", "Payment not found", 404)

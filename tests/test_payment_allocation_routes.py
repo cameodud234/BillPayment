@@ -1,5 +1,6 @@
 from fastapi.testclient import TestClient
 from main import app
+from helpers import assert_route_error
 
 client = TestClient(app)
 
@@ -59,8 +60,7 @@ def test_get_payment_allocations_route(test_db):
 def test_get_payment_allocations_route_not_found(test_db):
     response = client.get("/payments/999999/allocations")
 
-    assert response.status_code == 404
-    assert response.json()["detail"] == "Payment not found"
+    assert_route_error(response, 404, "PAYMENT_NOT_FOUND", "Payment not found")
 
 def test_get_payment_allocations_route_returns_expected_values(test_db):
     p1 = create_person("Cameron", 1000)

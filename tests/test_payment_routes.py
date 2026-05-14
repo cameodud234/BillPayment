@@ -1,5 +1,6 @@
 from fastapi.testclient import TestClient
 from main import app
+from helpers import assert_route_error
 
 client = TestClient(app)
 
@@ -104,8 +105,25 @@ def test_update_payment_route_not_found():
 
     response = client.put("/payments/999999", json=payload)
 
-    assert response.status_code == 404
-    assert response.json()["detail"] == "Payment not found"
+    assert_route_error(response, 404, "PAYMENT_NOT_FOUND", "Payment not found")
+
+
+def test_create_payment_route_invalid_due_date_returns_structured_error():
+    p1 = create_person("Invalid Due Date Owner", 1000)
+
+    response = client.post("/payments", json={
+        "name": "Bad Date",
+        "amount": 100,
+        "due_date": "04/15/2026",
+        "category": "Other",
+        "account_id": None,
+        "participant_ids": [p1],
+        "split_method": "equal",
+        "is_recurring": False,
+        "due_day": None
+    })
+
+    assert_route_error(response, 400, "VALIDATION_ERROR", "due_date must be YYYY-MM-DD")
 
 
 def test_delete_payment_route():
@@ -139,8 +157,7 @@ def test_delete_payment_route():
 def test_delete_payment_route_not_found():
     response = client.delete("/payments/999999")
 
-    assert response.status_code == 404
-    assert response.json()["detail"] == "Payment not found"
+    assert_route_error(response, 404, "PAYMENT_NOT_FOUND", "Payment not found")
 
 def test_delete_payment_route_again(test_db):
         
@@ -166,5 +183,4 @@ def test_delete_payment_route_removes_allocations(test_db):
     assert delete_response.status_code == 200
 
     alloc_response = client.get(f"/payments/{payment_id}/allocations")
-    assert alloc_response.status_code == 404
-    assert alloc_response.json()["detail"] == "Payment not found"
+    assert_route_error(alloc_response, 404, "PAYMENT_NOT_FOUND", "Payment not found")

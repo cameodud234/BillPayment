@@ -27,6 +27,27 @@ def raise_http_error(app_error: AppError, message: str | None = None):
         }
     )
 
+
+def raise_result_error(result: dict):
+    from fastapi import HTTPException
+
+    error = result["error"]
+    raise HTTPException(
+        status_code=error["status_code"],
+        detail={
+            "code": error["code"],
+            "message": error["message"],
+        }
+    )
+
+
+PERSON_ALREADY_EXISTS = AppError(
+    code="PERSON_ALREADY_EXISTS",
+    message="Person already exists",
+    status_code=409,
+)
+
+
 PERSON_NOT_FOUND = AppError(
     code="PERSON_NOT_FOUND",
     message="Person not found",

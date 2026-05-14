@@ -1,6 +1,7 @@
 from app.services import people
 from app.domain.person import PersonData
 import pytest
+from helpers import assert_service_error
 
 
 def test_create_person(test_db):
@@ -33,6 +34,22 @@ def test_get_person_by_id(test_db):
 
     assert person is not None
     assert person["name"] == "Test Person"
+
+
+def test_create_duplicate_person_returns_error(test_db):
+    data = PersonData(
+        name="Duplicate Person",
+        payday="Friday",
+        pay_schedule="weekly",
+        anchor_date=None,
+        average_income=1000
+    )
+
+    created = people.create_person(data)
+    duplicate = people.create_person(data)
+
+    assert created["status"] == "ok"
+    assert_service_error(duplicate, "PERSON_ALREADY_EXISTS", "Person already exists", 409)
 
 
 def test_update_person(test_db):
@@ -85,5 +102,4 @@ def test_delete_person(test_db):
 def test_delete_missing_person_returns_error(test_db):
     result = people.delete_person(999999)
 
-    assert result["status"] == "error"
-    assert result["message"] == "Person not found"
+    assert_service_error(result, "PERSON_NOT_FOUND", "Person not found", 404)

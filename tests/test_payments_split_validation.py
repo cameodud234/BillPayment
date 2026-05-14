@@ -6,6 +6,7 @@ from app.domain.account import AccountData
 from app.domain.payment import PaymentData
 from app.models.account_models import AccountType
 from app.models.payment_models import PaymentCategory, SplitMethod
+from helpers import assert_service_error
 
 
 def create_account_for_tests(person_id: int):
@@ -36,8 +37,12 @@ def test_income_ratio_fails_when_no_people_exist(test_db):
         )
     )
 
-    assert result["status"] == "error"
-    assert result["message"] == "One or more participant_ids do not exist."
+    assert_service_error(
+        result,
+        "VALIDATION_ERROR",
+        "One or more participant_ids do not exist",
+        400
+    )
 
 
 def test_income_ratio_fails_when_income_missing(test_db):
@@ -77,9 +82,9 @@ def test_income_ratio_fails_when_income_missing(test_db):
         )
     )
 
-    assert result["status"] == "error"
-    assert "missing average_income" in result["message"]
-    assert "Cameron" in result["message"]
+    assert_service_error(result, "VALIDATION_ERROR", status_code=400)
+    assert "missing average_income" in result["error"]["message"]
+    assert "Cameron" in result["error"]["message"]
 
 
 def test_income_ratio_fails_when_total_income_is_zero(test_db):
@@ -119,8 +124,12 @@ def test_income_ratio_fails_when_total_income_is_zero(test_db):
         )
     )
 
-    assert result["status"] == "error"
-    assert result["message"] == "Cannot use income_ratio split: total average_income must be greater than 0."
+    assert_service_error(
+        result,
+        "VALIDATION_ERROR",
+        "Total average_income must be greater than 0",
+        400
+    )
 
 
 def test_equal_with_one_participant_succeeds(test_db):
@@ -181,8 +190,12 @@ def test_equal_fails_when_participant_id_does_not_exist(test_db):
         )
     )
 
-    assert result["status"] == "error"
-    assert result["message"] == "One or more participant_ids do not exist."
+    assert_service_error(
+        result,
+        "VALIDATION_ERROR",
+        "One or more participant_ids do not exist",
+        400
+    )
 
 
 def test_income_ratio_succeeds_with_valid_income_data(test_db):

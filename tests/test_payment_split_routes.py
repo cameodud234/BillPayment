@@ -1,5 +1,6 @@
 from fastapi.testclient import TestClient
 from main import app
+from helpers import assert_route_error
 
 client = TestClient(app)
 
@@ -47,5 +48,5 @@ def test_income_ratio_route_fails_when_income_missing():
         "due_day": None
     })
 
-    assert response.status_code == 400
-    assert "missing average_income" in response.json()["detail"]
+    assert_route_error(response, 400, "VALIDATION_ERROR")
+    assert "missing average_income" in response.json()["detail"]["message"]

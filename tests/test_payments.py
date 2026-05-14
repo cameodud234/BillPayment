@@ -6,6 +6,7 @@ from app.domain.account import AccountData
 from app.domain.payment import PaymentData, WeeklyBudgetData
 from app.models.account_models import AccountType
 from app.models.payment_models import PaymentCategory, SplitMethod
+from helpers import assert_service_error
 
 def create_person(name: str, income: float | None):
     return people.create_person(
@@ -152,8 +153,7 @@ def test_update_payment_not_found(test_db):
         )
     )
 
-    assert result["status"] == "error"
-    assert result["message"] == "Payment not found"
+    assert_service_error(result, "PAYMENT_NOT_FOUND", "Payment not found", 404)
 
 
 def test_delete_payment_removes_payment_and_allocations(test_db):
@@ -195,8 +195,7 @@ def test_delete_payment_removes_payment_and_allocations(test_db):
 def test_delete_payment_not_found(test_db):
     result = payments.delete_payment(999999)
 
-    assert result["status"] == "error"
-    assert result["message"] == "Payment not found"
+    assert_service_error(result, "PAYMENT_NOT_FOUND", "Payment not found", 404)
 
 def test_weekly_budget(test_db):
     result = payments.get_weekly_budget(
@@ -277,8 +276,7 @@ def test_participant_ids_must_not_contain_duplicates():
 def test_delete_payment_not_found(test_db):
     result = payments.delete_payment(999999)
 
-    assert result["status"] == "error"
-    assert result["message"] == "Payment not found"
+    assert_service_error(result, "PAYMENT_NOT_FOUND", "Payment not found", 404)
 
 
 def test_delete_payment_removes_payment_and_allocations(test_db):

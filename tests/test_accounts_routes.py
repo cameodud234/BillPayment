@@ -1,5 +1,6 @@
 from fastapi.testclient import TestClient
 from main import app
+from helpers import assert_route_error
 
 client = TestClient(app)
 
@@ -42,8 +43,13 @@ def test_get_accounts_route():
     assert isinstance(response.json(), list)
 
 
+def test_get_missing_account_route_returns_structured_error(test_db):
+    response = client.get("/accounts/999999")
+
+    assert_route_error(response, 404, "ACCOUNT_NOT_FOUND", "Account not found")
+
+
 def test_create_account_route():
-    # first create a person so we have a valid person_id
     person_payload = {
         "name": "Account Owner",
         "payday": "Friday",
@@ -181,4 +187,21 @@ def test_create_second_account_for_same_person_route_fails(test_db):
         "updated_at": "2026-04-12"
     })
 
-    # assert second.status_code in (400, 409)
+    assert_route_error(
+        second,
+        409,
+        "PERSON_ACCOUNT_EXISTS",
+        "This person already has an account"
+    )
+
+
+def test_create_account_for_missing_person_route_fails(test_db):
+    response = client.post("/accounts", json={
+        "person_id": 999999,
+        "name": "Ghost Checking",
+        "account_type": "checking",
+        "balance": 100,
+        "updated_at": "2026-04-12"
+    })
+
+    assert_route_error(response, 404, "PERSON_NOT_FOUND", "Person not found")

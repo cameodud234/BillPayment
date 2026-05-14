@@ -183,10 +183,7 @@ def update_payment(payment_id: int, data: PaymentData):
         row = cursor.fetchone()
 
         if row is None:
-            return {
-                "status": "error",
-                "message": "Payment not found"
-            }
+            return errors.error_response(errors.PAYMENT_NOT_FOUND)
 
         payment_allocations.validate_split_method_requirements(cursor, data)
 
@@ -255,10 +252,7 @@ def delete_payment(payment_id: int):
         row = cursor.fetchone()
 
         if row is None:
-            return {
-                "status": "error",
-                "message": "Payment not found"
-            }
+            return errors.error_response(errors.PAYMENT_NOT_FOUND)
 
         cursor.execute("""
             DELETE FROM payments

@@ -5,6 +5,7 @@ from app.services import accounts, people
 from app.domain.account import AccountData
 from app.domain.person import PersonData
 from app.models.account_models import AccountType
+from helpers import assert_service_error
 
 
 
@@ -165,8 +166,26 @@ def test_account_cannot_add_multiple_accounts(test_db):
         )
     )
 
-    assert second["status"] == "error"
-    assert second["message"] == "This person already has an account"
+    assert_service_error(
+        second,
+        "PERSON_ACCOUNT_EXISTS",
+        "This person already has an account",
+        409
+    )
+
+
+def test_create_account_for_missing_person_returns_error(test_db):
+    result = accounts.create_account(
+        AccountData(
+            person_id=999999,
+            name="Missing Owner Checking",
+            account_type=AccountType.checking,
+            balance=100
+        )
+    )
+
+    assert_service_error(result, "PERSON_NOT_FOUND", "Person not found", 404)
+
 
 def test_account_can_be_created_for_person(test_db):
     person = people.create_person(
@@ -278,7 +297,12 @@ def test_update_account_cannot_move_to_person_who_already_has_account(test_db):
         )
     )
 
-    assert result["status"] == "error"
+    assert_service_error(
+        result,
+        "PERSON_ACCOUNT_EXISTS",
+        "This person already has an account",
+        409
+    )
 
 def test_get_total_balance_by_person_id_with_one_account(test_db):
     person = people.create_person(
@@ -310,8 +334,7 @@ def test_get_total_balance_by_person_id_with_one_account(test_db):
 def test_delete_missing_account_returns_error(test_db):
     result = accounts.delete_account(999999)
 
-    assert result["status"] == "error"
-    assert result["message"] == "Account not found"
+    assert_service_error(result, "ACCOUNT_NOT_FOUND", "Account not found", 404)
 
 def test_get_total_balance_by_person_id(test_db):
     p1 = people.create_person(
