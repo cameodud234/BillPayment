@@ -1,5 +1,6 @@
 from fastapi.testclient import TestClient
 from main import app
+from helpers import assert_route_error
 
 client = TestClient(app)
 
@@ -56,6 +57,23 @@ def test_update_person_route():
     assert body["updated_id"] == person_id
 
 
+def test_create_person_route_invalid_payday_returns_structured_error():
+    response = client.post("/people", json={
+        "name": "Bad Payday",
+        "payday": "Funday",
+        "pay_schedule": "weekly",
+        "anchor_date": None,
+        "average_income": 1000
+    })
+
+    assert_route_error(
+        response,
+        400,
+        "VALIDATION_ERROR",
+        "payday must be a valid weekday name"
+    )
+
+
 def test_delete_person_route():
     payload = {
         "name": "Delete Person",
@@ -76,4 +94,4 @@ def test_delete_person_route():
 
 def test_get_missing_person():
     response = client.get("/people/999999")
-    assert response.status_code == 404
+    assert_route_error(response, 404, "PERSON_NOT_FOUND", "Person not found")

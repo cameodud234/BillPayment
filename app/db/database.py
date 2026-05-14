@@ -18,7 +18,7 @@ def init_db():
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS people (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL,
+        name TEXT UNIQUE NOT NULL,
         payday TEXT,
         pay_schedule TEXT,
         anchor_date TEXT,
@@ -31,13 +31,13 @@ def init_db():
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS accounts (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        person_id INTEGER,
+        person_id INTEGER UNIQUE NOT NULL,
         name TEXT NOT NULL,
         account_type TEXT,
         balance REAL DEFAULT 0,
         updated_at TEXT,
         created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY(person_id) REFERENCES people(id) ON DELETE SET NULL
+        FOREIGN KEY(person_id) REFERENCES people(id) ON DELETE CASCADE
     )
     """)
 

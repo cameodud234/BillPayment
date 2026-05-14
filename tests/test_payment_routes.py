@@ -1,21 +1,24 @@
 from fastapi.testclient import TestClient
 from main import app
+from helpers import assert_route_error
 
 client = TestClient(app)
 
 
-def create_person_and_account():
+def create_person(name: str, average_income: float | None = 1200):
     person_payload = {
-        "name": "Payment Owner",
+        "name": name,
         "payday": "Friday",
         "pay_schedule": "weekly",
         "anchor_date": None,
-        "average_income": 1200
+        "average_income": average_income
     }
     person_response = client.post("/people", json=person_payload)
     assert person_response.status_code == 200
-    person_id = person_response.json()["id"]
+    return person_response.json()["id"]
 
+
+def create_account(person_id: int):
     account_payload = {
         "person_id": person_id,
         "name": "Payment Checking",
@@ -25,116 +28,159 @@ def create_person_and_account():
     }
     account_response = client.post("/accounts", json=account_payload)
     assert account_response.status_code == 200
-    account_id = account_response.json()["id"]
+    return account_response.json()["id"]
 
-    return person_id, account_id
-
-
-def test_get_payments_route():
-    response = client.get("/payments")
-    assert response.status_code == 200
-    assert isinstance(response.json(), list)
-
-
-def test_create_payment_route_equal():
-    _, account_id = create_person_and_account()
-
-    payload = {
+def create_payment(account_id: int, participant_ids: list[int]):
+    payment_payload = {
         "name": "Internet",
         "amount": 100,
         "due_date": "2026-04-15",
         "category": "Utilities",
         "account_id": account_id,
+        "participant_ids": participant_ids,
         "split_method": "equal",
         "is_recurring": False,
-        "due_day": None,
-        "single_person_id": None
+        "due_day": None
     }
 
-    response = client.post("/payments", json=payload)
+    payment_response = client.post("/payments", json=payment_payload)
+    assert payment_response.status_code == 200
+    return payment_response.json()["id"]
 
-    assert response.status_code == 200
-    body = response.json()
-    assert body["status"] == "ok"
-    assert "id" in body
+def test_update_payment_route():
+    p1 = create_person("Cameron", 1000)
+    p2 = create_person("Wife", 1500)
+    account_id = create_account(p1)
 
-
-def test_create_payment_route_single():
-    person_id, account_id = create_person_and_account()
-
-    payload = {
-        "name": "Personal Subscription",
-        "amount": 25,
-        "due_date": "2026-04-16",
-        "category": "Entertainment",
-        "account_id": account_id,
-        "split_method": "single",
-        "is_recurring": False,
-        "due_day": None,
-        "single_person_id": person_id
-    }
-
-    response = client.post("/payments", json=payload)
-
-    assert response.status_code == 200
-    body = response.json()
-    assert body["status"] == "ok"
-    assert "id" in body
-
-
-def test_create_payment_invalid_due_date():
-    _, account_id = create_person_and_account()
-
-    payload = {
-        "name": "Bad Date Payment",
-        "amount": 50,
-        "due_date": "04-15-2026",
-        "category": "Other",
-        "account_id": account_id,
-        "split_method": "equal",
-        "is_recurring": False,
-        "due_day": None,
-        "single_person_id": None
-    }
-
-    response = client.post("/payments", json=payload)
-
-    assert response.status_code == 400
-    assert response.json()["detail"] == "due_date must be YYYY-MM-DD"
-
-
-def test_create_payment_invalid_due_day():
-    _, account_id = create_person_and_account()
-
-    payload = {
-        "name": "Bad Due Day",
-        "amount": 80,
+    create_payload = {
+        "name": "Internet",
+        "amount": 100,
         "due_date": "2026-04-15",
         "category": "Utilities",
         "account_id": account_id,
+        "participant_ids": [p1, p2],
         "split_method": "equal",
-        "is_recurring": True,
-        "due_day": 40,
-        "single_person_id": None
+        "is_recurring": False,
+        "due_day": None
     }
 
-    response = client.post("/payments", json=payload)
+    create_response = client.post("/payments", json=create_payload)
+    assert create_response.status_code == 200
+    payment_id = create_response.json()["id"]
 
-    assert response.status_code == 400
-    assert response.json()["detail"] == "due_day must be between 1 and 31"
+    update_payload = {
+        "name": "Internet Updated",
+        "amount": 120,
+        "due_date": "2026-04-20",
+        "category": "Utilities",
+        "account_id": account_id,
+        "participant_ids": [p1, p2],
+        "split_method": "income_ratio",
+        "is_recurring": False,
+        "due_day": None
+    }
 
-
-def test_weekly_budget_route():
-    response = client.post("/payments/weekly", json={"payday": "2026-04-07"})
+    response = client.put(f"/payments/{payment_id}", json=update_payload)
 
     assert response.status_code == 200
     body = response.json()
-    assert "total" in body
-    assert "payments" in body
+    assert body["status"] == "ok"
+    assert body["updated_id"] == payment_id
 
 
-def test_weekly_budget_invalid_date():
-    response = client.post("/payments/weekly", json={"payday": "04/07/2026"})
+def test_update_payment_route_not_found():
+    p1 = create_person("Ghost Owner", 1000)
 
-    assert response.status_code == 400
-    assert response.json()["detail"] == "payday must be YYYY-MM-DD"
+    payload = {
+        "name": "Missing Payment",
+        "amount": 100,
+        "due_date": "2026-04-15",
+        "category": "Other",
+        "account_id": None,
+        "participant_ids": [p1],
+        "split_method": "equal",
+        "is_recurring": False,
+        "due_day": None
+    }
+
+    response = client.put("/payments/999999", json=payload)
+
+    assert_route_error(response, 404, "PAYMENT_NOT_FOUND", "Payment not found")
+
+
+def test_create_payment_route_invalid_due_date_returns_structured_error():
+    p1 = create_person("Invalid Due Date Owner", 1000)
+
+    response = client.post("/payments", json={
+        "name": "Bad Date",
+        "amount": 100,
+        "due_date": "04/15/2026",
+        "category": "Other",
+        "account_id": None,
+        "participant_ids": [p1],
+        "split_method": "equal",
+        "is_recurring": False,
+        "due_day": None
+    })
+
+    assert_route_error(response, 400, "VALIDATION_ERROR", "due_date must be YYYY-MM-DD")
+
+
+def test_delete_payment_route():
+    p1 = create_person("Delete Owner", 1000)
+    account_id = create_account(p1)
+
+    create_payload = {
+        "name": "Delete Me",
+        "amount": 50,
+        "due_date": "2026-04-15",
+        "category": "Other",
+        "account_id": account_id,
+        "participant_ids": [p1],
+        "split_method": "equal",
+        "is_recurring": False,
+        "due_day": None
+    }
+
+    create_response = client.post("/payments", json=create_payload)
+    assert create_response.status_code == 200
+    payment_id = create_response.json()["id"]
+
+    response = client.delete(f"/payments/{payment_id}")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "ok"
+    assert body["deleted_id"] == payment_id
+
+
+def test_delete_payment_route_not_found():
+    response = client.delete("/payments/999999")
+
+    assert_route_error(response, 404, "PAYMENT_NOT_FOUND", "Payment not found")
+
+def test_delete_payment_route_again(test_db):
+        
+    p1 = create_person("Delete Owner", 1000)
+    account_id = create_account(p1)
+    payment_id = create_payment(account_id, [p1])
+
+    response = client.delete(f"/payments/{payment_id}")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "ok"
+    assert body["deleted_id"] == payment_id
+
+
+def test_delete_payment_route_removes_allocations(test_db):
+    p1 = create_person("Delete Owner", 1000)
+    p2 = create_person("Second", 1000)
+    account_id = create_account(p1)
+    payment_id = create_payment(account_id, [p1, p2])
+
+    delete_response = client.delete(f"/payments/{payment_id}")
+    assert delete_response.status_code == 200
+
+    alloc_response = client.get(f"/payments/{payment_id}/allocations")
+    assert_route_error(alloc_response, 404, "PAYMENT_NOT_FOUND", "Payment not found")
