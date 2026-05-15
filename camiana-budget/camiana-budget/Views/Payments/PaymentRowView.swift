@@ -16,8 +16,8 @@ struct PaymentRowView: View {
                 Text(payment.name)
                     .font(.headline)
 
-                if let category = payment.category, !category.isEmpty {
-                    Text(category)
+                if let category = payment.category {
+                    Text(category.rawValue)
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }

@@ -37,6 +37,9 @@ final class PaymentsStore: ObservableObject {
         amount: Double,
         dueDate: Date,
         category: PaymentCategory,
+        accountID: Int?,
+        participantIDs: [Int],
+        splitMethod: SplitMethod,
         isRecurring: Bool,
         dueDay: Int?
     ) async {
@@ -52,13 +55,15 @@ final class PaymentsStore: ObservableObject {
             amount: amount,
             due_date: formatter.string(from: dueDate),
             category: category.rawValue,
-            account_id: nil,
-            is_recurring: isRecurring ? 1 : 0,
+            account_id: accountID,
+            participant_ids: participantIDs,
+            split_method: splitMethod,
+            is_recurring: isRecurring,
             due_day: dueDay
         )
 
         do {
-            try await PaymentsAPIService.shared.addPayment(request)
+            _ = try await PaymentsAPIService.shared.addPayment(request)
             await loadPayments()
         } catch {
             errorMessage = error.localizedDescription

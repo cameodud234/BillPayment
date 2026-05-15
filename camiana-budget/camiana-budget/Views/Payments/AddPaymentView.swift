@@ -12,10 +12,13 @@ struct AddPaymentView: View {
 
     @State private var name: String = ""
     @State private var amount: String = ""
+    @State private var accountID: String = ""
+    @State private var participantIDs: String = ""
     @State private var dueDate: Date = Date()
     @State private var isRecurring = false
     @State private var dueDay = 1
     @State private var selectedCategory: PaymentCategory = .other
+    @State private var splitMethod: SplitMethod = .equal
 
     var body: some View {
         GroupBox("Add Payment") {
@@ -26,12 +29,25 @@ struct AddPaymentView: View {
                 TextField("Amount", text: $amount)
                     .textFieldStyle(.roundedBorder)
 
+                TextField("Account ID (optional)", text: $accountID)
+                    .textFieldStyle(.roundedBorder)
+
+                TextField("Participant IDs, comma-separated", text: $participantIDs)
+                    .textFieldStyle(.roundedBorder)
+
                 Picker("Category", selection: $selectedCategory) {
                     ForEach(PaymentCategory.allCases) { category in
                         Text(category.rawValue).tag(category)
                     }
                 }
                 .pickerStyle(.menu)
+
+                Picker("Split Method", selection: $splitMethod) {
+                    ForEach(SplitMethod.allCases) { method in
+                        Text(method.label).tag(method)
+                    }
+                }
+                .pickerStyle(.segmented)
                 
                 Toggle("Recurring Payment", isOn: $isRecurring)
                 
@@ -88,11 +104,41 @@ struct AddPaymentView: View {
             return
         }
 
+        let trimmedAccountID = accountID.trimmingCharacters(in: .whitespacesAndNewlines)
+        let parsedAccountID: Int?
+
+        if trimmedAccountID.isEmpty {
+            parsedAccountID = nil
+        } else if let value = Int(trimmedAccountID) {
+            parsedAccountID = value
+        } else {
+            paymentsStore.errorMessage = "Please enter a valid account ID."
+            return
+        }
+
+        let participantIDParts = participantIDs
+            .split(separator: ",")
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+        let parsedParticipantIDs = participantIDParts.compactMap(Int.init)
+
+        guard !parsedParticipantIDs.isEmpty else {
+            paymentsStore.errorMessage = "Please enter at least one participant ID."
+            return
+        }
+
+        guard parsedParticipantIDs.count == participantIDParts.count else {
+            paymentsStore.errorMessage = "Participant IDs must be numbers separated by commas."
+            return
+        }
+
         await paymentsStore.addPayment(
             name: name,
             amount: amountValue,
             dueDate: dueDate,
             category: selectedCategory,
+            accountID: parsedAccountID,
+            participantIDs: parsedParticipantIDs,
+            splitMethod: splitMethod,
             isRecurring: isRecurring,
             dueDay: isRecurring ? dueDay : nil
         )
@@ -100,7 +146,10 @@ struct AddPaymentView: View {
         if paymentsStore.errorMessage == nil {
             name = ""
             amount = ""
+            accountID = ""
+            participantIDs = ""
             selectedCategory = .other
+            splitMethod = .equal
             isRecurring = false
             dueDay = 1
         }

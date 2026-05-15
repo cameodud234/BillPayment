@@ -7,8 +7,6 @@
 
 import Foundation
 
-import Foundation
-
 final class SummariesAPIService {
     static let shared = SummariesAPIService()
 
@@ -44,7 +42,7 @@ final class SummariesAPIService {
 
     private func parseServerError(from data: Data) throws -> APIServiceError {
         if let apiError = try? JSONDecoder().decode(APIErrorResponse.self, from: data) {
-            let message = apiError.detail ?? apiError.error ?? "Server error."
+            let message = apiError.detail?.message ?? apiError.error ?? "Server error."
             return .serverError(message)
         }
         return .serverError("Server error.")
