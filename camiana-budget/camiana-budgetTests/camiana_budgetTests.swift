@@ -264,6 +264,16 @@ final class camiana_budgetTests: XCTestCase {
         XCTAssertEqual(json["message"] as? String, "Backend is running")
     }
 
+    func testLiveServerNextPaydaySummaryResponds() async throws {
+        let data = try await get(path: "/summaries/next-payday?today=2026-05-14")
+        let summary = try decoder.decode(NextPaydaySummaryResponse.self, from: data)
+
+        XCTAssertEqual(summary.status, "ok")
+        XCTAssertEqual(summary.today, "2026-05-14")
+        XCTAssertEqual(summary.next_payday, "2026-05-15")
+        XCTAssertEqual(summary.total_due, 0)
+    }
+
     func testLiveServerCanCreateSplitPaymentAndFetchAllocations() async throws {
         let suffix = UUID().uuidString
         let firstPerson = try await post(

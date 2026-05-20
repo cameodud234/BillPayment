@@ -10,6 +10,7 @@ def get_next_friday(today: date) -> date:
     days_ahead = 4 - today.weekday()
     if days_ahead < 0:
         days_ahead += 7
+    return today + timedelta(days=days_ahead)
 
 def is_wife_payday(check_date: date) -> bool:
     return (check_date - BIWEEKLY_PAYDAY_ANCHOR).days % 14 == 0
@@ -55,7 +56,7 @@ def get_next_payday_summary(today_str: str | None = None):
         )
 
     except Exception as e:
-        return {
-            "status": "error",
-            "message": f"Failed to build next payday summary: {str(e)}"
-        }
+        return errors.error_response(
+            errors.DATABASE_ERROR,
+            f"Failed to build next payday summary: {str(e)}"
+        )
